@@ -62,7 +62,7 @@ restore_original() {
     fi
 }
 
-# 注入函数 (修复了 & 符号被转义的问题)
+# 注入函数 (使用流式处理，支持无限大小文件)
 inject_code() {
     ensure_backup || return 1
     
@@ -83,73 +83,82 @@ inject_code() {
     fi
 
     local temp_file=$(mktemp)
-    cp "$INDEX_FILE" "$temp_file"
+    # 这里不需要预先复制，awk 会读取原始文件并生成新文件
 
-    # 处理 CSS
+    # 1. 处理 CSS (如果存在)
     if [ -n "$css_path" ] && [ -f "$css_path" ]; then
-        echo -e "${GRAD_12}正在注入 CSS...${NC}"
-        # 使用更安全的 awk 逻辑：找到位置，切断字符串，直接 print 内容，避免 gsub 转义问题
-        awk -v content="$(cat "$css_path")" '
+        echo -e "${GRAD_12}正在注入 CSS (流式处理)...${NC}"
+        
+        # 使用 awk 的 getline 逐行读取外部文件，不占用内存变量
+        awk -v insert_file="$css_path" '
         BEGIN { found = 0 }
         /<\/head>/ && found == 0 {
             match($0, /<\/head>/)
             # 打印 </head> 之前的内容
             printf "%s", substr($0, 1, RSTART - 1)
-            # 打印 CSS 标签和内容
+            
+            # 开始注入 CSS 块
             print "<style>"
-            print "/* Injected by script */"
-            print content
+            print "/* Injected CSS */"
+            # 逐行读取 CSS 文件并直接打印
+            while ((getline line < insert_file) > 0) {
+                print line
+            }
+            close(insert_file)
             print "</style>"
+            
             # 打印 </head> 及其之后的内容
             print substr($0, RSTART)
             found = 1
             next
         }
         { print }
-        ' "$temp_file" > "${temp_file}.tmp" && mv "${temp_file}.tmp" "$temp_file"
+        ' "$INDEX_FILE" > "$temp_file"
+        
+        # 将处理结果覆盖回 index.html，以便后续处理 JS
+        mv "$temp_file" "$INDEX_FILE"
     fi
 
-    # 处理 JS
+    # 2. 处理 JS (如果存在)
     if [ -n "$js_path" ] && [ -f "$js_path" ]; then
-        echo -e "${GRAD_12}正在注入 JS...${NC}"
-        # 同样使用安全的逻辑，防止 && 变成 </body></body>
-        awk -v content="$(cat "$js_path")" '
+        echo -e "${GRAD_12}正在注入 JS (流式处理)...${NC}"
+        
+        awk -v insert_file="$js_path" '
         BEGIN { found = 0 }
         /<\/body>/ && found == 0 {
             match($0, /<\/body>/)
-            # 打印 </body> 之前的内容
             printf "%s", substr($0, 1, RSTART - 1)
-            # 打印 JS 标签和内容
+            
             print "<script>"
-            print "// Injected by script"
-            print content
+            print "// Injected JS"
+            while ((getline line < insert_file) > 0) {
+                print line
+            }
+            close(insert_file)
             print "</script>"
-            # 打印 </body> 及其之后的内容
+            
             print substr($0, RSTART)
             found = 1
             next
         }
         { print }
-        ' "$temp_file" > "${temp_file}.tmp" && mv "${temp_file}.tmp" "$temp_file"
+        ' "$INDEX_FILE" > "$temp_file"
+        
+        mv "$temp_file" "$INDEX_FILE"
     fi
 
-    # 应用修改
-    if mv "$temp_file" "$INDEX_FILE"; then
-        chmod 644 "$INDEX_FILE"
-        echo -e "${GRAD_8}✓ 注入成功！请强制刷新浏览器 (Ctrl+F5) 查看效果。${NC}"
-    else
-        echo -e "${GRAD_17}✗ 应用失败${NC}"
-        restore_original
-    fi
+    # 最终权限设置
+    chmod 644 "$INDEX_FILE"
+    echo -e "${GRAD_8}✓ 注入成功！请强制刷新浏览器 (Ctrl+F5) 查看效果。${NC}"
 }
 
 # ==================== 菜单逻辑 ====================
 
 show_menu() {
     echo -e "\n${GRAD_12}╔═══════════════════════════════════════════╗${NC}"
-    echo -e "${GRAD_12}║${GRAD_15}    ${BOLD}${BLINK}-- 飞牛前端代码注入工具 v1.2 --${NO_EFFECT}    ${GRAD_12}║${NC}"
+    echo -e "${GRAD_12}║${GRAD_15}   ${BOLD}${BLINK}-- 飞牛前端代码注入工具 v2.0 Pro --${NO_EFFECT}   ${GRAD_12}║${NC}"
     echo -e "${GRAD_12}╚═══════════════════════════════════════════╝${NC}"
-    echo -e "${GRAD_8} 1. 注入自定义 CSS/JS${NC}"
+    echo -e "${GRAD_8} 1. 注入自定义 CSS/JS (支持大文件)${NC}"
     echo -e "${GRAD_4} 2. 还原官方默认状态${NC}"
     echo -e "${GRAD_18} 0. 退出脚本${NC}"
 }
