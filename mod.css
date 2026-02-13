@@ -470,6 +470,8 @@ body:not([theme-mode="dark"]) {
 
     .semi-popover-wrapper {
         color: var(--semi-color-white);
+        border-color: rgba(255, 255, 255, .2);
+        border-width: 1px;
 
         .text-\[var\(--semi-color-text-0\)\],
         .text-text-0 {
