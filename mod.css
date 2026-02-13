@@ -492,3 +492,9 @@ body:not([theme-mode="dark"]) {
         }
     }
 }
+
+.semi-modal-content {
+    background-color:
+        color-mix(in srgb, var(--semi-color-bg-2) 75%, var(--semi-color-border-modal) 50%);
+    backdrop-filter: blur(18px);
+}
