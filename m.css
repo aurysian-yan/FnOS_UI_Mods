@@ -236,11 +236,6 @@ div.absolute.right-0.top-0.z-50.flex.size-loose.items-center.justify-end.pt-2:ha
     corner-shape: superellipse(2);
 }
 
-.h-full.rounded-md.border.border-\[rgba\(255\,255\,255\,0\.20\)\].bg-\[var\(--semi-color-fndesktop-navbarBg\)\].backdrop-blur-\[20px\] {
-    border-radius: 24px !important;
-    corner-shape: superellipse(2);
-}
-
 /* 菜单按钮 */
 
 .self-stretch.shrink-0.flex.items-center.cursor-pointer.pb-\[15px\].text-\[var\(--semi-color-text-0\)\] {
@@ -329,13 +324,46 @@ div.absolute.right-0.top-0.z-50.flex.size-loose.items-center.justify-end.pt-2:ha
 }
 
 .semi-image.size-full:has(img[alt="全部应用"]) img, .semi-image.size-full:has(img[alt="桌面"]) img {
-    display:none;
+    display: none;
 }
 
 .relative.flex.flex-1.flex-col:has(.flex.h-10.w-\[47px\].items-center.justify-center.gap-x-2.border-0.\!border-l-\[3px\].border-solid.border-transparent.hover\:bg-white-10) {
     height: fit-content;
+    flex: 0 1 0;
 }
 
-.relative.flex.flex-1.flex-col:has(.flex.h-10.w-\[47px\].items-center.justify-center.gap-x-2.border-0.\!border-l-\[3px\].border-solid.border-transparent.hover\:bg-white-10) .scrollbar-hidden.absolute.inset-0.flex.flex-col.items-end.justify-start.gap-2.overflow-y-auto.pt-2{
+.relative.flex.flex-1.flex-col:has(.flex.h-10.w-\[47px\].items-center.justify-center.gap-x-2.border-0.\!border-l-\[3px\].border-solid.border-transparent.hover\:bg-white-10) .scrollbar-hidden.absolute.inset-0.flex.flex-col.items-end.justify-start.gap-2.overflow-y-auto.pt-2 {
     height: fit-content;
+    position: relative;
+}
+
+
+.box-border.size-full.py-4.pl-3\.5:has(.h-full.rounded-md.border.border-\[rgba\(255\,255\,255\,0\.20\)\].bg-\[var\(--semi-color-fndesktop-navbarBg\)\].backdrop-blur-\[20px\]) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.flex.h-10.w-\[47px\].items-center.justify-center.gap-x-2.border-0.\!border-l-\[3px\].border-solid.border-transparent.hover\:bg-white-10 {
+    border: none !important;
+    width: 44px !important;
+    height: 44px;
+    margin: 0 4px;
+    mask-image: url("data:image/svg+xml;charset=utf-8;base64,PHN2ZyB3aWR0aD0iMzUyIiBoZWlnaHQ9IjM1MiIgdmlld0JveD0iMCAwIDM1MiAzNTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xNzYgMEMyMDUuODggMCAyMzIuNTA5IDAuMjk1NTE4IDI1NC4wOTMgMy4zMDI3M0MyNzUuNzQ1IDYuMzE5NjIgMzAwLjM4OSAxMy4wMDYgMzE5LjY5MSAzMi4zMDg2QzMzOC45OTQgNTEuNjExMiAzNDUuNjggNzYuMjU0NSAzNDguNjk3IDk3LjkwNzJDMzUxLjcwNCAxMTkuNDkxIDM1MiAxNDYuMTIgMzUyIDE3NkMzNTIgMjA1Ljg4IDM1MS43MDQgMjMyLjUwOSAzNDguNjk3IDI1NC4wOTNDMzQ1LjY4IDI3NS43NDUgMzM4Ljk5NCAzMDAuMzg5IDMxOS42OTEgMzE5LjY5MUMzMDAuMzg5IDMzOC45OTQgMjc1Ljc0NSAzNDUuNjggMjU0LjA5MyAzNDguNjk3QzIzMi41MDkgMzUxLjcwNCAyMDUuODggMzUyIDE3NiAzNTJDMTQ2LjEyIDM1MiAxMTkuNDkxIDM1MS43MDQgOTcuOTA3MiAzNDguNjk3Qzc2LjI1NDUgMzQ1LjY4IDUxLjYxMTIgMzM4Ljk5NCAzMi4zMDg2IDMxOS42OTFDMTMuMDA2IDMwMC4zODkgNi4zMTk2MiAyNzUuNzQ1IDMuMzAyNzMgMjU0LjA5M0MwLjI5NTUxOCAyMzIuNTA5IDAgMjA1Ljg4IDAgMTc2QzAgMTQ2LjEyIDAuMjk1NTE4IDExOS40OTEgMy4zMDI3MyA5Ny45MDcyQzYuMzE5NjIgNzYuMjU0NSAxMy4wMDYgNTEuNjExMiAzMi4zMDg2IDMyLjMwODZDNTEuNjExMiAxMy4wMDYgNzYuMjU0NSA2LjMxOTYyIDk3LjkwNzIgMy4zMDI3M0MxMTkuNDkxIDAuMjk1NTE4IDE0Ni4xMiAwIDE3NiAwWiIgZmlsbD0idXJsKCNwYWludDBfbGluZWFyXzNfMTApIi8+CjxkZWZzPgo8bGluZWFyR3JhZGllbnQgaWQ9InBhaW50MF9saW5lYXJfM18xMCIgeDE9IjE3NiIgeTE9IjQ4IiB4Mj0iMTc2IiB5Mj0iMzA0IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CjxzdG9wIG9mZnNldD0iMC4xNDM5MjgiIHN0b3AtY29sb3I9IiM3RUE5RkYiLz4KPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMjU2OEVEIi8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KPC9zdmc+Cg==");
+    mask-size: 44px;
+}
+
+.h-full.rounded-md.border.border-\[rgba\(255\,255\,255\,0\.20\)\].bg-\[var\(--semi-color-fndesktop-navbarBg\)\].backdrop-blur-\[20px\] .box-border.flex.h-full.flex-col.py-3{
+    padding-top: 4px !important;
+    padding-bottom: 14px !important;
+}
+
+.h-full.rounded-md.border.border-\[rgba\(255\,255\,255\,0\.20\)\].bg-\[var\(--semi-color-fndesktop-navbarBg\)\].backdrop-blur-\[20px\] {
+    border-radius: 128px !important;
+    corner-shape: superellipse(1.75);
+}
+
+.h-full.rounded-md.border.border-\[rgba\(255\,255\,255\,0\.20\)\].bg-\[var\(--semi-color-fndesktop-navbarBg\)\].backdrop-blur-\[20px\] .pb-\[7px\] {
+    padding-bottom: 0 !important;
+    border: none !important;
 }
