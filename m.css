@@ -195,8 +195,14 @@ div.absolute.right-0.top-0.z-50.flex.size-loose.items-center.justify-end.pt-2:ha
 /* ========= 桌面图标 ========= */
 
 .flex.h-\[124px\].w-\[130px\].cursor-pointer.flex-col.items-center.justify-center.gap-4 {
-    height: calc((100vh - 40px) / 8) !important;
-    transition: all 0.5s cubic-bezier(0, 1.03, 0.68, 1.18) !important;
+    height: clamp(90px, calc((100vh - 40px) / 8), 170px);
+    transition: all 0.5s cubic-bezier(0, 1.03, 0.68, 1.18);
+}
+
+@media (max-height: 780px) {
+    .flex.h-\[124px\].w-\[130px\].cursor-pointer.flex-col.items-center.justify-center.gap-4 {
+        height: clamp(90px, calc((100vh - 40px) / 6), 150px) !important;
+    }
 }
 
 .flex.h-\[124px\].w-\[130px\].cursor-pointer.flex-col.items-center.justify-center.gap-4 .box-border.size-\[80px\].p-\[15\%\].\!h-\[50px\].\!w-\[50px\].\!p-0 {
@@ -359,6 +365,7 @@ div.absolute.right-0.top-0.z-50.flex.size-loose.items-center.justify-end.pt-2:ha
     margin: 0 4px;
     mask-image: url("data:image/svg+xml;charset=utf-8;base64,PHN2ZyB3aWR0aD0iMzUyIiBoZWlnaHQ9IjM1MiIgdmlld0JveD0iMCAwIDM1MiAzNTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xNzYgMEMyMDUuODggMCAyMzIuNTA5IDAuMjk1NTE4IDI1NC4wOTMgMy4zMDI3M0MyNzUuNzQ1IDYuMzE5NjIgMzAwLjM4OSAxMy4wMDYgMzE5LjY5MSAzMi4zMDg2QzMzOC45OTQgNTEuNjExMiAzNDUuNjggNzYuMjU0NSAzNDguNjk3IDk3LjkwNzJDMzUxLjcwNCAxMTkuNDkxIDM1MiAxNDYuMTIgMzUyIDE3NkMzNTIgMjA1Ljg4IDM1MS43MDQgMjMyLjUwOSAzNDguNjk3IDI1NC4wOTNDMzQ1LjY4IDI3NS43NDUgMzM4Ljk5NCAzMDAuMzg5IDMxOS42OTEgMzE5LjY5MUMzMDAuMzg5IDMzOC45OTQgMjc1Ljc0NSAzNDUuNjggMjU0LjA5MyAzNDguNjk3QzIzMi41MDkgMzUxLjcwNCAyMDUuODggMzUyIDE3NiAzNTJDMTQ2LjEyIDM1MiAxMTkuNDkxIDM1MS43MDQgOTcuOTA3MiAzNDguNjk3Qzc2LjI1NDUgMzQ1LjY4IDUxLjYxMTIgMzM4Ljk5NCAzMi4zMDg2IDMxOS42OTFDMTMuMDA2IDMwMC4zODkgNi4zMTk2MiAyNzUuNzQ1IDMuMzAyNzMgMjU0LjA5M0MwLjI5NTUxOCAyMzIuNTA5IDAgMjA1Ljg4IDAgMTc2QzAgMTQ2LjEyIDAuMjk1NTE4IDExOS40OTEgMy4zMDI3MyA5Ny45MDcyQzYuMzE5NjIgNzYuMjU0NSAxMy4wMDYgNTEuNjExMiAzMi4zMDg2IDMyLjMwODZDNTEuNjExMiAxMy4wMDYgNzYuMjU0NSA2LjMxOTYyIDk3LjkwNzIgMy4zMDI3M0MxMTkuNDkxIDAuMjk1NTE4IDE0Ni4xMiAwIDE3NiAwWiIgZmlsbD0idXJsKCNwYWludDBfbGluZWFyXzNfMTApIi8+CjxkZWZzPgo8bGluZWFyR3JhZGllbnQgaWQ9InBhaW50MF9saW5lYXJfM18xMCIgeDE9IjE3NiIgeTE9IjQ4IiB4Mj0iMTc2IiB5Mj0iMzA0IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CjxzdG9wIG9mZnNldD0iMC4xNDM5MjgiIHN0b3AtY29sb3I9IiM3RUE5RkYiLz4KPHN0b3Agb2Zmc2V0PSIxIiBzdG9wLWNvbG9yPSIjMjU2OEVEIi8+CjwvbGluZWFyR3JhZGllbnQ+CjwvZGVmcz4KPC9zdmc+Cg==");
     mask-size: 44px;
+    transition: all 0.5s cubic-bezier(0, 1.03, 0.68, 1.18) !important;
 }
 
 .h-full.rounded-md.border.border-\[rgba\(255\,255\,255\,0\.20\)\].bg-\[var\(--semi-color-fndesktop-navbarBg\)\].backdrop-blur-\[20px\] .box-border.flex.h-full.flex-col.py-3 {
