@@ -7,139 +7,102 @@
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
-  <div class="backdrop"></div>
-  <div class="orbit"></div>
-
-  <main class="shell">
-    <header class="hero">
-      <div>
-        <p class="tag">Root 权限 · UI 补丁工具</p>
-        <h1>FnOS UI 注入工具</h1>
-        <p class="subtitle">通过图形界面将 CSS / JS 注入到 fnOS WebUI 的系统页面，支持文件选择与编辑输入。</p>
-      </div>
-      <div class="status-grid">
-        <div class="status-card">
-          <span class="status-label">系统文件</span>
-          <strong id="status-index">检查中…</strong>
-          <span class="status-meta" id="status-index-meta">/usr/trim/www/index.html</span>
-        </div>
-        <div class="status-card">
-          <span class="status-label">备份文件</span>
-          <strong id="status-backup">检查中…</strong>
-          <span class="status-meta" id="status-backup-meta">/usr/cqshbak/index.html.original</span>
-        </div>
-      </div>
+  <main class="screen">
+    <header class="top-switches">
+      <article class="inject-overview" id="css-overview">
+        <label class="title-row top-toggle" for="css-enable">
+          <input id="css-enable" class="overview-toggle native-control" type="checkbox" checked />
+          <span class="custom-checkbox" aria-hidden="true"></span>
+          <h1>注入 CSS</h1>
+        </label>
+        <p>在&lt;/head&gt;前插入样式补丁</p>
+      </article>
+      <article class="inject-overview" id="js-overview">
+        <label class="title-row top-toggle" for="js-enable">
+          <input id="js-enable" class="overview-toggle native-control" type="checkbox" checked />
+          <span class="custom-checkbox" aria-hidden="true"></span>
+          <h1>注入 JavaScript</h1>
+        </label>
+        <p>在&lt;/body&gt;前插入脚本补丁</p>
+      </article>
     </header>
 
-    <section class="panel">
-      <div class="panel-head">
-        <h2>注入内容</h2>
-        <p>每个模块可选择“文件”或“编辑”方式。若选择文件，会优先使用文件内容。</p>
-      </div>
-      <div class="columns">
-        <div class="card">
-          <div class="card-head">
-            <h3>CSS 注入</h3>
-            <p>添加样式补丁（插入到 <code>&lt;/head&gt;</code> 前）。</p>
-          </div>
-          <div class="mode-select">
-            <label>
-              <input type="radio" name="css-mode" value="none" checked />
-              不处理
-            </label>
-            <label>
-              <input type="radio" name="css-mode" value="file" />
-              选择文件
-            </label>
-            <label>
-              <input type="radio" name="css-mode" value="path" />
-              服务器路径
-            </label>
-            <label>
-              <input type="radio" name="css-mode" value="text" />
-              编辑输入
-            </label>
-          </div>
-          <div class="mode-panel" data-mode="file">
+    <section class="work-area">
+      <article class="inject-module card">
+        <h2>CSS 注入方式</h2>
+        <div class="mode-select">
+          <label class="mode-option hidden-option"><input class="native-control" type="radio" name="css-mode" value="none" /><span class="custom-radio" aria-hidden="true"></span><span>不处理</span></label>
+          <label class="mode-option"><input class="native-control" type="radio" name="css-mode" value="file" checked /><span class="custom-radio" aria-hidden="true"></span><span>选择本地文件</span></label>
+          <label class="mode-option"><input class="native-control" type="radio" name="css-mode" value="path" /><span class="custom-radio" aria-hidden="true"></span><span>选择 NAS 文件</span></label>
+          <label class="mode-option"><input class="native-control" type="radio" name="css-mode" value="text" /><span class="custom-radio" aria-hidden="true"></span><span>填入代码</span></label>
+        </div>
+
+        <div class="mode-panel" data-mode="file">
+          <label class="file-row css-file-row">
             <input id="css-file" type="file" accept=".css,text/css" />
-            <div class="hint" id="css-file-hint">未选择文件</div>
-          </div>
-          <div class="mode-panel" data-mode="path">
-            <input id="css-path" type="text" placeholder="例如：/vol1/@appshare/FnOS_UI_Mods/mod.css" />
-            <div class="hint">从 NAS 路径读取 CSS 文件内容</div>
-          </div>
-          <div class="mode-panel" data-mode="text">
-            <textarea id="css-text" rows="10" placeholder="粘贴或输入 CSS 内容"></textarea>
-          </div>
+            <span class="file-icon css-icon">CSS</span>
+            <span class="file-name" id="css-file-hint">未选择文件</span>
+            <span class="file-close">×</span>
+          </label>
         </div>
 
-        <div class="card">
-          <div class="card-head">
-            <h3>JS 注入</h3>
-            <p>添加脚本补丁（插入到 <code>&lt;/body&gt;</code> 前）。</p>
-          </div>
-          <div class="mode-select">
-            <label>
-              <input type="radio" name="js-mode" value="none" checked />
-              不处理
-            </label>
-            <label>
-              <input type="radio" name="js-mode" value="file" />
-              选择文件
-            </label>
-            <label>
-              <input type="radio" name="js-mode" value="path" />
-              服务器路径
-            </label>
-            <label>
-              <input type="radio" name="js-mode" value="text" />
-              编辑输入
-            </label>
-          </div>
-          <div class="mode-panel" data-mode="file">
+        <div class="mode-panel" data-mode="path">
+          <input id="css-path" type="text" placeholder="例如：/vol1/1000/Datas/mod.css" />
+        </div>
+
+        <div class="mode-panel" data-mode="text">
+          <textarea id="css-text" rows="8" placeholder="粘贴或输入 CSS 内容"></textarea>
+        </div>
+      </article>
+
+      <article class="inject-module card">
+        <h2>JavaScript 注入方式</h2>
+        <div class="mode-select">
+          <label class="mode-option hidden-option"><input class="native-control" type="radio" name="js-mode" value="none" /><span class="custom-radio" aria-hidden="true"></span><span>不处理</span></label>
+          <label class="mode-option"><input class="native-control" type="radio" name="js-mode" value="file" checked /><span class="custom-radio" aria-hidden="true"></span><span>选择本地文件</span></label>
+          <label class="mode-option"><input class="native-control" type="radio" name="js-mode" value="path" /><span class="custom-radio" aria-hidden="true"></span><span>选择 NAS 文件</span></label>
+          <label class="mode-option"><input class="native-control" type="radio" name="js-mode" value="text" /><span class="custom-radio" aria-hidden="true"></span><span>填入代码</span></label>
+        </div>
+
+        <div class="mode-panel" data-mode="file">
+          <label class="file-row js-file-row">
             <input id="js-file" type="file" accept=".js,application/javascript,text/javascript" />
-            <div class="hint" id="js-file-hint">未选择文件</div>
-          </div>
-          <div class="mode-panel" data-mode="path">
-            <input id="js-path" type="text" placeholder="例如：/vol1/@appshare/FnOS_UI_Mods/mod.js" />
-            <div class="hint">从 NAS 路径读取 JS 文件内容</div>
-          </div>
-          <div class="mode-panel" data-mode="text">
-            <textarea id="js-text" rows="10" placeholder="粘贴或输入 JS 内容"></textarea>
-          </div>
+            <span class="file-icon js-icon">JS</span>
+            <span class="file-name" id="js-file-hint">未选择文件</span>
+            <span class="file-close">×</span>
+          </label>
         </div>
-      </div>
+
+        <div class="mode-panel" data-mode="path">
+          <input id="js-path" type="text" placeholder="例如：/vol1/1000/Datas/mod.js" />
+        </div>
+
+        <div class="mode-panel" data-mode="text">
+          <textarea id="js-text" rows="8" placeholder="粘贴或输入 JS 内容"></textarea>
+        </div>
+      </article>
     </section>
 
-    <section class="panel">
-      <div class="panel-head">
-        <h2>注入延时</h2>
-        <p>注入前先还原官方默认，再等待一段时间，模拟手动输入路径的间隔。</p>
+    <footer class="bottom-bar">
+      <div class="status-pills">
+        <div class="status-pill">● ROOT权限：已获取</div>
+        <div class="status-pill">● 备份：<span id="status-backup">检查中…</span></div>
+        <div class="status-pill">● 目标文件：<span id="status-index">检查中…</span></div>
       </div>
-      <div class="form-grid">
-        <label class="field">
-          <span>注入前等待（秒）</span>
-          <input id="inject-delay" type="number" min="0" max="120" value="5" />
-        </label>
-      </div>
-    </section>
 
-    <section class="panel actions">
       <div class="action-buttons">
-        <button id="inject-btn" class="primary">执行注入</button>
-        <button id="restore-btn" class="ghost">还原官方默认</button>
+        <button id="restore-btn" class="restore-btn" type="button">↻ 还原</button>
+        <button id="inject-btn" class="inject-btn" type="button">↪ 立即注入</button>
       </div>
-      <div id="message" class="message"></div>
-    </section>
+    </footer>
 
-    <section class="panel tips">
-      <h2>提示</h2>
-      <ul>
-        <li>注入前会自动从系统文件创建备份（若备份不存在）。</li>
-        <li>注入完成后需要在浏览器执行强制刷新（Ctrl+F5）。</li>
-        <li>本工具需要 Root 权限以修改系统文件。</li>
-      </ul>
-    </section>
+    <div id="message" class="message"></div>
+
+    <div class="meta-hidden" aria-hidden="true">
+      <span id="status-index-meta">/usr/trim/www/index.html</span>
+      <span id="status-backup-meta">/usr/cqshbak/index.html.original</span>
+      <input id="inject-delay" type="hidden" value="5" />
+    </div>
   </main>
 
   <script src="./app.js" defer></script>

@@ -141,7 +141,7 @@ async function writeTempFile(ext, content) {
 async function runShellInject(cssPath, jsPath, delaySec = 0) {
   return new Promise((resolve, reject) => {
     const runner = selectRunner();
-    const delayArg = delaySec > 0 ? String(delaySec) : '';
+    const delayArg = delaySec > 0 ? String(delaySec) : '0';
     const baseArgs = [SHELL_INJECT_SCRIPT, cssPath || '', jsPath || '', delayArg];
 
     if (runner === 'at') {
@@ -170,7 +170,15 @@ async function runShellInject(cssPath, jsPath, delaySec = 0) {
       if (stdout.trim()) log(`Shell inject stdout: ${stdout.trim()}`);
       if (stderr.trim()) log(`Shell inject stderr: ${stderr.trim()}`);
       if (code === 0) return resolve();
-      return reject(new Error(`Shell inject failed with code ${code}`));
+      const stderrLastLine = stderr
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .slice(-1)[0];
+      const errMsg = stderrLastLine
+        ? `Shell inject failed with code ${code}: ${stderrLastLine}`
+        : `Shell inject failed with code ${code}`;
+      return reject(new Error(errMsg));
     });
   });
 }

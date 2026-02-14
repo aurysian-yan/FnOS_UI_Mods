@@ -1,16 +1,23 @@
-#!/bin/bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 BACKUP_DIR="/usr/cqshbak"
 BACKUP_FILE="${BACKUP_DIR}/index.html.original"
 TARGET_DIR="/usr/trim/www"
 INDEX_FILE="${TARGET_DIR}/index.html"
 
-CSS_PATH="${1:-}"
-JS_PATH="${2:-}"
-DELAY_SEC="${3:-0}"
+CSS_PATH="${1-}"
+JS_PATH="${2-}"
+DELAY_SEC="${3-0}"
 
-if ! [[ "${DELAY_SEC}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+is_valid_delay() {
+    case "$1" in
+        ''|*[!0-9.]*|*.*.*|.*|*.) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+if ! is_valid_delay "${DELAY_SEC}"; then
     DELAY_SEC="0"
 fi
 
@@ -35,8 +42,7 @@ restore_original() {
 }
 
 inject_css() {
-    local css_file="$1"
-    local temp_file
+    css_file="$1"
     temp_file="$(mktemp)"
 
     awk -v insert_file="${css_file}" '
@@ -62,8 +68,7 @@ inject_css() {
 }
 
 inject_js() {
-    local js_file="$1"
-    local temp_file
+    js_file="$1"
     temp_file="$(mktemp)"
 
     awk -v insert_file="${js_file}" '
@@ -92,6 +97,7 @@ if [ -z "${CSS_PATH}" ] && [ -z "${JS_PATH}" ]; then
     echo "未提供任何 CSS/JS 内容" >&2
     exit 2
 fi
+
 ensure_backup
 restore_original
 

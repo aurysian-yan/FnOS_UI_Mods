@@ -16,7 +16,29 @@ const jsTextArea = document.getElementById('js-text');
 const cssPathInput = document.getElementById('css-path');
 const jsPathInput = document.getElementById('js-path');
 const injectDelayInput = document.getElementById('inject-delay');
+const cssEnableToggle = document.getElementById('css-enable');
+const jsEnableToggle = document.getElementById('js-enable');
+const cssOverview = document.getElementById('css-overview');
+const jsOverview = document.getElementById('js-overview');
+const cssOverviewDesc = document.querySelector('#css-overview p');
+const jsOverviewDesc = document.querySelector('#js-overview p');
 const DEFAULT_INJECT_DELAY = 5;
+const THEME_MODE_MSG = 'fnos-ui-mods:theme-mode';
+const THEME_MODE_REQ_MSG = 'fnos-ui-mods:theme-mode:request';
+const CHILD_ORIGIN = window.location.origin;
+const DEFAULT_PARENT_ORIGIN = `${window.location.protocol}//${window.location.hostname}:5666`;
+const QUERY_PARENT_ORIGIN = new URLSearchParams(window.location.search).get('parentOrigin');
+const REFERRER_PARENT_ORIGIN = (() => {
+  try {
+    return document.referrer ? new URL(document.referrer).origin : '';
+  } catch (_) {
+    return '';
+  }
+})();
+const PARENT_ORIGIN = QUERY_PARENT_ORIGIN || REFERRER_PARENT_ORIGIN || DEFAULT_PARENT_ORIGIN;
+const prefersDarkMedia = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+let themeModeObserver = null;
+let themeModeSyncedFromParent = false;
 
 function apiUrl(path) {
   const cleanPath = path.replace(/^\/+/, '');
@@ -54,6 +76,7 @@ async function loadStatus() {
 }
 
 function updateModePanels(cardElement, mode) {
+  if (!cardElement) return;
   const panels = cardElement.querySelectorAll('.mode-panel');
   panels.forEach((panel) => {
     if (panel.dataset.mode === mode) {
@@ -64,15 +87,165 @@ function updateModePanels(cardElement, mode) {
   });
 }
 
+function getCheckedMode(name) {
+  const checked = document.querySelector(`input[name="${name}-mode"]:checked`);
+  return checked ? checked.value : 'none';
+}
+
+function syncSectionToggle(name) {
+  const mode = getCheckedMode(name);
+  const enabled = mode !== 'none';
+
+  const toggle = name === 'css' ? cssEnableToggle : jsEnableToggle;
+  const overview = name === 'css' ? cssOverview : jsOverview;
+
+  if (toggle) toggle.checked = enabled;
+  if (overview) overview.classList.toggle('disabled', !enabled);
+}
+
+function setMode(name, mode) {
+  const target = document.querySelector(`input[name="${name}-mode"][value="${mode}"]`);
+  if (!target) return;
+  target.checked = true;
+  target.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function setSectionEnabled(name, enabled) {
+  if (enabled) {
+    if (getCheckedMode(name) === 'none') {
+      setMode(name, 'file');
+    } else {
+      syncSectionToggle(name);
+    }
+    return;
+  }
+  setMode(name, 'none');
+}
+
+function wireOverviewDescToggle(name, element) {
+  if (!element) return;
+  element.addEventListener('click', () => {
+    const toggle = name === 'css' ? cssEnableToggle : jsEnableToggle;
+    if (!toggle) return;
+    toggle.checked = !toggle.checked;
+    toggle.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
+function normalizeThemeMode(mode) {
+  return mode === 'dark' ? 'dark' : '';
+}
+
+function applyThemeMode(mode) {
+  const normalized = normalizeThemeMode(mode);
+  if (document.body) {
+    document.body.removeAttribute('theme-mode');
+  }
+  if (normalized === 'dark') {
+    document.documentElement.setAttribute('theme-mode', 'dark');
+    return;
+  }
+  document.documentElement.removeAttribute('theme-mode');
+}
+
+function getDirectParentThemeMode() {
+  try {
+    if (window.parent && window.parent !== window && window.parent.document && window.parent.document.body) {
+      return {
+        available: true,
+        mode: window.parent.document.body.getAttribute('theme-mode'),
+      };
+    }
+  } catch (_) {
+    // cross-origin or blocked access
+  }
+  return { available: false, mode: null };
+}
+
+function getFallbackThemeMode() {
+  if (prefersDarkMedia && prefersDarkMedia.matches) return 'dark';
+  return '';
+}
+
+function syncThemeModeFromParent() {
+  const direct = getDirectParentThemeMode();
+  if (direct.available) {
+    themeModeSyncedFromParent = true;
+    applyThemeMode(direct.mode);
+    return;
+  }
+  applyThemeMode(getFallbackThemeMode());
+}
+
+function onThemeMessage(event) {
+  const data = event && event.data;
+  if (!data || typeof data !== 'object') return;
+  if (event.origin !== PARENT_ORIGIN) return;
+  if (window.parent && event.source !== window.parent) return;
+  if (data.type !== THEME_MODE_MSG) return;
+  themeModeSyncedFromParent = true;
+  applyThemeMode(data.themeMode);
+}
+
+function requestThemeModeFromParent() {
+  if (!window.parent || window.parent === window) return;
+  try {
+    window.parent.postMessage(
+      {
+        type: THEME_MODE_REQ_MSG,
+        childOrigin: CHILD_ORIGIN,
+      },
+      PARENT_ORIGIN,
+    );
+  } catch (_) {
+    // ignore
+  }
+}
+
+function onSystemThemeChanged() {
+  if (themeModeSyncedFromParent) return;
+  applyThemeMode(getFallbackThemeMode());
+}
+
+function observeThemeMode() {
+  let sourceBody = null;
+  try {
+    if (window.parent && window.parent !== window && window.parent.document && window.parent.document.body) {
+      sourceBody = window.parent.document.body;
+    }
+  } catch (_) {
+    sourceBody = null;
+  }
+
+  if (!sourceBody) {
+    sourceBody = document.body;
+  }
+  if (!sourceBody) return;
+
+  themeModeObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+      if (mutation.type === 'attributes' && mutation.attributeName === 'theme-mode') {
+        syncThemeModeFromParent();
+        break;
+      }
+    }
+  });
+
+  themeModeObserver.observe(sourceBody, { attributes: true, attributeFilter: ['theme-mode'] });
+}
+
 function wireModeGroup(name) {
   const radios = document.querySelectorAll(`input[name="${name}-mode"]`);
+  if (!radios || radios.length === 0) return;
   const card = radios[0].closest('.card');
-  const current = document.querySelector(`input[name="${name}-mode"]:checked`).value;
+  const current = getCheckedMode(name);
   updateModePanels(card, current);
+  syncSectionToggle(name);
 
   radios.forEach((radio) => {
     radio.addEventListener('change', () => {
       updateModePanels(card, radio.value);
+      syncSectionToggle(name);
     });
   });
 }
@@ -216,6 +389,27 @@ jsFileInput.addEventListener('change', () => fileHint(jsFileInput, jsFileHint));
 
 injectBtn.addEventListener('click', handleInject);
 restoreBtn.addEventListener('click', handleRestore);
+cssEnableToggle?.addEventListener('change', () => setSectionEnabled('css', cssEnableToggle.checked));
+jsEnableToggle?.addEventListener('change', () => setSectionEnabled('js', jsEnableToggle.checked));
+wireOverviewDescToggle('css', cssOverviewDesc);
+wireOverviewDescToggle('js', jsOverviewDesc);
+window.addEventListener('message', onThemeMessage);
+window.addEventListener('focus', requestThemeModeFromParent);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    requestThemeModeFromParent();
+  }
+});
+if (prefersDarkMedia) {
+  if (typeof prefersDarkMedia.addEventListener === 'function') {
+    prefersDarkMedia.addEventListener('change', onSystemThemeChanged);
+  } else if (typeof prefersDarkMedia.addListener === 'function') {
+    prefersDarkMedia.addListener(onSystemThemeChanged);
+  }
+}
+syncThemeModeFromParent();
+observeThemeMode();
+requestThemeModeFromParent();
 
 wireModeGroup('css');
 wireModeGroup('js');
