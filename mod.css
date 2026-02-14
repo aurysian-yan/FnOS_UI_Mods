@@ -1,10 +1,11 @@
-/* * {
+* {
     font-family: "Inter Variable", "Inter", "SF Pro", "OPPO Sans 4.0", MiSans, "MiSans VF", "MiSans";
-    font-weight: 400 !important;
-} */
+    font-weight: 450 !important;
+}
 
 .bg-\[var\(--semi-color-app-container\)\] {
-    background-color: var(--semi-color-fndesktop-navbarBg) !important;
+    background-color:
+        color-mix(in srgb, var(--semi-color-bg-0) 50%, transparent) !important;
     border: var(--semi-color-divider-1) 1px solid;
     box-sizing: border-box;
     corner-shape: superellipse(1.25);
@@ -27,7 +28,7 @@
 
 .trim-ui__app-layout--window {
     corner-shape: superellipse(2);
-    backdrop-filter: blur(20px);
+    backdrop-filter: saturate(2) blur(32px) !important;
 }
 
 .mb-1.mr-1.flex.w-0.flex-1.flex-col.overflow-auto.rounded-\[12px\].bg-\[var\(--semi-color-app-container\)\] {
@@ -43,7 +44,7 @@
 }
 
 .bg-\[var\(--semi-color-app\)\] {
-    background-color: rgba(var(--semi-grey-0), 0.8);
+    background-color: rgba(var(--semi-grey-0), 0.6);
 }
 
 html .trim-os__app-layout--files-container .trim-ui__table--placeholder,
@@ -54,12 +55,12 @@ html .trim-os__app-layout--files-container .trim-ui__table--placeholder,
 
 .hover\:\!bg-\[var\(--semi-color-bg-1\)\]:hover,
 .bg-bg-1:hover {
-    background-color: color-mix(in srgb, var(--semi-color-bg-0) 40%, transparent) !important;
+    background-color: color-mix(in srgb, var(--semi-color-bg-0) 60%, transparent) !important;
 }
 
 .\!bg-\[var\(--semi-color-bg-1\)\],
 .bg-bg-1 {
-    background-color: color-mix(in srgb, var(--semi-color-bg-0) 30%, transparent) !important;
+    background-color: color-mix(in srgb, var(--semi-color-bg-0) 50%, transparent) !important;
 }
 
 div.absolute.right-0.top-0.z-50.flex.size-loose.items-center.justify-end.pt-2:has(div[title="更多字段"]) {
@@ -140,8 +141,8 @@ div.absolute.right-0.top-0.z-50.flex.size-loose.items-center.justify-end.pt-2:ha
 }
 
 .trim-ui__app-layout--header-title>div>img {
-    height: 20px;
-    width: 20px;
+    height: 18px;
+    width: 18px;
 }
 
 .app-layout-header-close,
@@ -396,7 +397,7 @@ div.absolute.right-0.top-0.z-50.flex.size-loose.items-center.justify-end.pt-2:ha
     corner-shape: superellipse(1.75);
     height: fit-content;
     max-height: 100%;
-    backdrop-filter: saturate(3) blur(32px) !important;
+    backdrop-filter: saturate(2) blur(32px) !important;
 }
 
 .h-full.rounded-md.border.border-\[rgba\(255\,255\,255\,0\.20\)\].bg-\[var\(--semi-color-fndesktop-navbarBg\)\].backdrop-blur-\[20px\] .pb-\[7px\] {
@@ -436,7 +437,7 @@ div.absolute.right-0.top-0.z-50.flex.size-loose.items-center.justify-end.pt-2:ha
 
 /* "回到桌面"按钮 */
 /* 注释此段以还原按钮位置 */
-.flex.flex-col.items-center.border-0.\!border-b > .flex.h-10.w-\[47px\].items-center.justify-center.gap-x-2.border-0.\!border-l-\[3px\].border-solid.border-transparent.hover\:bg-white-10:first-child {
+.flex.flex-col.items-center.border-0.\!border-b>.flex.h-10.w-\[47px\].items-center.justify-center.gap-x-2.border-0.\!border-l-\[3px\].border-solid.border-transparent.hover\:bg-white-10:first-child {
     position: absolute;
     bottom: -6px;
     mask-image: none;
@@ -446,7 +447,7 @@ div.absolute.right-0.top-0.z-50.flex.size-loose.items-center.justify-end.pt-2:ha
     transform: scaleX(0.5) translateY(0);
 }
 
-.flex.flex-col.items-center.border-0.\!border-b > .flex.h-10.w-\[47px\].items-center.justify-center.gap-x-2.border-0.\!border-l-\[3px\].border-solid.border-transparent.hover\:bg-white-10:first-child:hover {
+.flex.flex-col.items-center.border-0.\!border-b>.flex.h-10.w-\[47px\].items-center.justify-center.gap-x-2.border-0.\!border-l-\[3px\].border-solid.border-transparent.hover\:bg-white-10:first-child:hover {
     background: var(--semi-color-white-80);
     transform: scaleX(1) translateY(4px);
 }
