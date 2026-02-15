@@ -49,14 +49,53 @@
     injectScript();
   }
 
+  function hasFnOSSignature() {
+    const root = document.body?.querySelector(':scope > #root');
+    if (!root) return false;
+
+    const rootContainer = root.querySelector(':scope > div.flex.h-screen.w-full.relative');
+    if (!rootContainer) return false;
+
+    const backgroundContainer = rootContainer.querySelector('div.absolute.inset-0.z-0.object-contain');
+    if (!backgroundContainer) return false;
+
+    return Boolean(backgroundContainer.querySelector('.semi-image'));
+  }
+
+  function waitForFnOSSignature(timeoutMs = 3000) {
+    if (hasFnOSSignature()) return Promise.resolve(true);
+
+    return new Promise((resolve) => {
+      const observer = new MutationObserver(() => {
+        if (!hasFnOSSignature()) return;
+
+        observer.disconnect();
+        resolve(true);
+      });
+
+      const onTimeout = () => {
+        observer.disconnect();
+        resolve(false);
+      };
+
+      observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true
+      });
+
+      setTimeout(onTimeout, timeoutMs);
+    });
+  }
+
   chrome.storage.sync.get(
     {
       enabledOrigins: [],
       autoEnablePrivateIp: true
     },
-    ({ enabledOrigins, autoEnablePrivateIp }) => {
+    async ({ enabledOrigins, autoEnablePrivateIp }) => {
       const isWhitelisted = Array.isArray(enabledOrigins) && enabledOrigins.includes(ORIGIN);
-      const autoEnabled = autoEnablePrivateIp && isPrivateHost(location.hostname);
+      const matchesFnOSUi = await waitForFnOSSignature();
+      const autoEnabled = autoEnablePrivateIp && isPrivateHost(location.hostname) && matchesFnOSUi;
 
       if (isWhitelisted || autoEnabled) {
         startInject();
