@@ -1,0 +1,39 @@
+{
+  "manifest_version": 3,
+  "name": "FnOS UI Mods Injector",
+  "description": "按站点注入 FnOS UI Mods 的 CSS/JS，适配内网 IP 不固定的场景。",
+  "version": "1.0.0",
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content-script.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "action": {
+    "default_title": "FnOS UI Mods",
+    "default_popup": "popup.html"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "mod.css",
+        "mod.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}

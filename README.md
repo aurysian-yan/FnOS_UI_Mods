@@ -9,6 +9,25 @@
 ## 介绍
 基于向 WebUI HTML 内注入 CSS 与 JS 来实现修改样式和平滑圆角。使用了`corner-shape`属性来实现平滑圆角，需要 Chrome 139 版本及以上才能获得最佳效果。
 
+## 浏览器插件注入（推荐，适配 IP 不固定）
+仓库内提供了一个 MV3 浏览器插件模板：`browser-extension/`。
+
+### 设计思路
+- **不写死 WebUI IP**：插件支持“按站点启用”，你访问到哪台 NAS 的 WebUI，就在插件里对当前 `origin` 一键启用。
+- **支持内网自动匹配**：默认开启“自动对内网 IP 启用”（10.x.x.x / 172.16-31.x.x / 192.168.x.x / localhost）。
+- **原始样式逻辑不变**：插件直接注入本项目同版本的 `mod.css` 和 `mod.js`，不用再改 WebUI 源文件。
+
+### 使用方法
+1. 打开 Chrome / Edge 扩展管理页。
+2. 开启“开发者模式”。
+3. 选择“加载已解压的扩展程序”，目录选 `browser-extension/`。
+4. 打开你的 FnOS WebUI 页面，点击插件图标：
+   - 需要精准控制时：点击“对当前站点启用”；
+   - 想自动覆盖局域网地址时：保持“自动对内网 IP 启用”勾选。
+5. 刷新 WebUI 页面即可生效。
+
+> 如果后续你更新了根目录的 `mod.css` / `mod.js`，请同步覆盖 `browser-extension/mod.css` / `browser-extension/mod.js`，然后在扩展管理页点“重新加载”。
+
 ### 可选项
 窗口标题栏提供传统（类 Windows）与反转（类 macOS）两种样式：
 
