@@ -11,7 +11,7 @@ const { spawn } = require('child_process');
 
 const APP_DEST = process.env.TRIM_APPDEST || path.resolve(__dirname, '..');
 const WWW_ROOT = path.join(APP_DEST, 'www');
-const PORT = Number(process.env.TRIM_SERVICE_PORT || process.env.PORT || 8080);
+const PORT = Number(process.env.TRIM_SERVICE_PORT || process.env.PORT || 8964);
 
 const TARGET_DIR = '/usr/trim/www';
 const INDEX_FILE = path.join(TARGET_DIR, 'index.html');

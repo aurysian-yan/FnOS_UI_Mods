@@ -4,8 +4,8 @@
             "title": "飞牛自定义工具",
             "icon": "images/icon_{0}.png",
             "type": "iframe",
-            "protocol": "",
-            "port": "8080",
+            "protocol": "http",
+            "port": "8964",
             "url": "/",
             "allUsers": false
         }

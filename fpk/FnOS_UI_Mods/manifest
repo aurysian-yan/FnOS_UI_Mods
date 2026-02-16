@@ -8,6 +8,6 @@ maintainer            = FnOS_UI_Mods
 distributor           = FnOS_UI_Mods
 desktop_uidir         = ui
 desktop_applaunchname = FnOS_UI_Mods.Application
-service_port          = 8080
+service_port          = 8964
 checkport             = true
 install_dep_apps      = nodejs_v22

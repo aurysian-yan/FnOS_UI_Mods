@@ -6,7 +6,7 @@ PID_FILE="${TRIM_PKGVAR}/app.pid"
 
 export PATH=/var/apps/nodejs_v22/target/bin:$PATH
 
-PORT="${TRIM_SERVICE_PORT:-8080}"
+PORT="${TRIM_SERVICE_PORT:-8964}"
 CMD="PORT=${PORT} node ${TRIM_APPDEST}/server/server.js"
 
 log_msg() {
