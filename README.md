@@ -15,14 +15,13 @@
 !["传统"样式预览](https://github.com/user-attachments/assets/518ea41c-bc6e-4acf-a7e2-dac3107c382f)
 !["反转"样式预览](https://github.com/user-attachments/assets/821c2176-768a-4eaa-8a38-5c6d56c6e2dd)
 
-两套样式均在 mod.css 内提供，需要自己通过修改注释来切换。
+两套样式均在项目内提供，需要自己通过修改注释来切换。如果你使用浏览器插件注入，即可在插件弹出窗口进行配置。
 
 ## 使用方法：
 
 ### 浏览器插件注入（推荐）
 仓库内提供了一个 MV3 浏览器插件：`browser-extension/`。你可以使用该插件直接在本机页面注入本项目同版本的全部mod，同时还支持快速切换两种窗口标题栏样式。无需修改 NAS 系统文件，出问题一键即可取消注入。
 
-### 使用方法
 1. 打开 Chrome / Edge 扩展管理页。
 2. 开启“开发者模式”。
 3. 选择“加载已解压的扩展程序”，目录选 `browser-extension/`。
