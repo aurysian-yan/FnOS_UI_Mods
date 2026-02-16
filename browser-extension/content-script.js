@@ -2,36 +2,33 @@
   if (window.top !== window) return;
 
   const ORIGIN = location.origin;
-  const STYLE_ID = 'fnos-ui-mods-style';
+  const BASIC_STYLE_ID = 'fnos-ui-mods-basic-style';
+  const TITLEBAR_STYLE_ID = 'fnos-ui-mods-titlebar-style';
   const SCRIPT_ID = 'fnos-ui-mods-script';
+  const TITLEBAR_STYLES = {
+    windows: 'windows_titlebar_mod.css',
+    mac: 'mac_titlebar_mod.css'
+  };
 
-  function isPrivateHost(hostname) {
-    if (!hostname) return false;
-    if (hostname === 'localhost' || hostname.endsWith('.local')) return true;
+  function injectStyle(id, href) {
+    let link = document.getElementById(id);
+    if (!link) {
+      link = document.createElement('link');
+      link.id = id;
+      link.rel = 'stylesheet';
+      (document.head || document.documentElement).appendChild(link);
+    }
 
-    const ipv4Match = hostname.match(/^(\d{1,3}\.){3}\d{1,3}$/);
-    if (!ipv4Match) return false;
-
-    const parts = hostname.split('.').map(Number);
-    if (parts.some((n) => Number.isNaN(n) || n < 0 || n > 255)) return false;
-
-    const [a, b] = parts;
-    return (
-      a === 10 ||
-      (a === 172 && b >= 16 && b <= 31) ||
-      (a === 192 && b === 168) ||
-      (a === 127)
-    );
+    const nextHref = chrome.runtime.getURL(href);
+    if (link.href !== nextHref) {
+      link.href = nextHref;
+    }
   }
 
-  function injectStyle() {
-    if (document.getElementById(STYLE_ID)) return;
-
-    const link = document.createElement('link');
-    link.id = STYLE_ID;
-    link.rel = 'stylesheet';
-    link.href = chrome.runtime.getURL('mod.css');
-    (document.head || document.documentElement).appendChild(link);
+  function injectStyles(titlebarStyle) {
+    const normalizedStyle = titlebarStyle === 'mac' ? 'mac' : 'windows';
+    injectStyle(BASIC_STYLE_ID, 'basic_mod.css');
+    injectStyle(TITLEBAR_STYLE_ID, TITLEBAR_STYLES[normalizedStyle]);
   }
 
   function injectScript() {
@@ -44,8 +41,8 @@
     (document.head || document.documentElement).appendChild(script);
   }
 
-  function startInject() {
-    injectStyle();
+  function startInject(titlebarStyle) {
+    injectStyles(titlebarStyle);
     injectScript();
   }
 
@@ -56,7 +53,7 @@
     const rootContainer = root.querySelector(':scope > div.flex.h-screen.w-full.relative');
     if (!rootContainer) return false;
 
-    const backgroundContainer = rootContainer.querySelector('div.absolute.inset-0.z-0.object-contain');
+    const backgroundContainer = rootContainer.querySelector(':scope > div.absolute.inset-0.z-0.object-contain');
     if (!backgroundContainer) return false;
 
     return Boolean(backgroundContainer.querySelector('.semi-image'));
@@ -87,18 +84,24 @@
     });
   }
 
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type !== 'FNOS_CHECK') return;
+    sendResponse({ isFnOSWebUi: hasFnOSSignature() });
+  });
+
   chrome.storage.sync.get(
     {
       enabledOrigins: [],
-      autoEnablePrivateIp: true
+      autoEnableSuspectedFnOS: true,
+      titlebarStyle: 'windows'
     },
-    async ({ enabledOrigins, autoEnablePrivateIp }) => {
+    async ({ enabledOrigins, autoEnableSuspectedFnOS, titlebarStyle }) => {
       const isWhitelisted = Array.isArray(enabledOrigins) && enabledOrigins.includes(ORIGIN);
       const matchesFnOSUi = await waitForFnOSSignature();
-      const autoEnabled = autoEnablePrivateIp && isPrivateHost(location.hostname) && matchesFnOSUi;
+      const autoEnabled = autoEnableSuspectedFnOS && matchesFnOSUi;
 
       if (isWhitelisted || autoEnabled) {
-        startInject();
+        startInject(titlebarStyle);
       }
     }
   );

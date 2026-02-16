@@ -147,6 +147,47 @@
       color: var(--tip);
     }
 
+    .platform-group {
+      margin-top: 12px;
+      border-radius: 13px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+      background: color-mix(in srgb, var(--card-bg) 75%, #000 25%);
+    }
+
+    .platform-option {
+      display: flex;
+      gap: 12px;
+      padding: 12px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+
+    .platform-option + .platform-option {
+      border-top: 1px solid var(--card-border);
+    }
+
+    .platform-option input {
+      margin-top: 3px;
+      width: 20px;
+      height: 20px;
+      accent-color: var(--switch-on);
+      flex-shrink: 0;
+    }
+
+    .platform-title {
+      font-size: 18px;
+      font-weight: 600;
+      line-height: 1.25;
+    }
+
+    .platform-desc {
+      margin-top: 4px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
     span.slider #mask1 {
       position: absolute;
       left: 0;
@@ -181,14 +222,32 @@
   <div class="card">
     <div class="title">当前站点</div>
     <code><div id="origin" class="origin">读取中...</div></code>
-    <span class="badge">
+    <span id="fnosBadge" class="badge">
       <svg height="13" viewBox="0 0 186 146" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path
           d="M165.919 0C186.953 16.6521 193.393 44.8258 175.141 56.2471C169.512 59.769 162.558 60 155.919 60H77.3192C73.2174 60 70.8021 60.0087 69.0194 60.1543C68.0729 60.2316 67.6289 60.3297 67.4804 60.3691C66.9768 60.6445 66.5633 61.058 66.288 61.5615C66.2485 61.7104 66.1504 62.1549 66.0731 63.1006C65.9275 64.8832 65.9188 67.2988 65.9188 71.4004V122.2C65.9188 122.88 65.9202 123.469 65.9228 123.995C66.4488 123.998 67.0381 124 67.7187 124H77.9188V115.4C77.9188 114.462 77.9101 113.096 78.0097 111.877C78.1197 110.53 78.4141 108.427 79.5536 106.19L79.8329 105.667C81.2803 103.084 83.4633 100.983 86.1093 99.6348L86.5263 99.4307C88.6055 98.4587 90.5327 98.194 91.7958 98.0908C93.0146 97.9912 94.3807 98 95.3192 98H105.919V89.2002C105.919 88.8217 105.91 87.8754 105.982 86.9902C106.065 85.9764 106.305 84.1203 107.336 82.0977L107.578 81.6445C108.832 79.4062 110.724 77.5854 113.017 76.417L113.394 76.2324C115.269 75.3567 116.959 75.1411 117.909 75.0635C118.794 74.9912 119.741 75 120.119 75H162.919C161.918 84 145.419 96.9999 130.919 97H127.919V102.6C127.919 103.538 127.928 104.904 127.828 106.123C127.718 107.47 127.424 109.573 126.284 111.81C124.846 114.632 122.551 116.927 119.728 118.365C117.492 119.505 115.389 119.799 114.042 119.909C112.823 120.009 111.457 120 110.518 120H99.9188V128.6C99.9188 129.538 99.9276 130.904 99.828 132.123C99.7179 133.47 99.4236 135.573 98.2841 137.81C96.846 140.632 94.5507 142.927 91.7284 144.365C89.4917 145.505 87.3891 145.799 86.0419 145.909C84.8231 146.009 83.457 146 82.5185 146H67.7187C65.6601 146 63.454 146.009 61.5683 145.854C59.5541 145.69 56.9574 145.286 54.2929 143.929C50.7182 142.107 47.8117 139.201 45.9901 135.626C44.6326 132.962 44.229 130.365 44.0644 128.351C43.9103 126.465 43.9188 124.259 43.9188 122.2V71.4004C43.9188 67.6617 43.9106 64.1949 44.1464 61.3086C44.3927 58.2941 44.959 54.9566 46.6435 51.6504L46.8729 51.2119C49.2808 46.7087 53.0123 43.0465 57.5692 40.7246L58.1894 40.4219C61.2914 38.9706 64.4012 38.4585 67.2274 38.2275C70.1138 37.9917 73.5804 38 77.3192 38H155.919C169.918 37.9999 171.919 27.9999 171.919 21C171.919 14.0002 169.919 5.99995 165.919 0ZM19.9188 0C15.919 5.99994 13.9188 14.0002 13.9188 21C13.9189 27.9999 15.9194 37.9998 29.9188 38H36.4237C35.2192 39.5657 34.1248 41.2224 33.1522 42.958L33.078 43.0889L33.0077 43.2217L32.5409 44.0928L32.4628 44.2393L32.3866 44.3877C29.3682 50.3126 28.5288 55.9792 28.2001 59.9912C22.0933 59.9342 15.8416 59.4661 10.6972 56.2471C-7.55508 44.8259 -1.11503 16.6521 19.9188 0Z"
           fill="white" />
       </svg>
-      疑似 fnOS WebUI 页面
+      <span id="fnosBadgeText">检测中：疑似 fnOS WebUI 页面</span>
     </span>
+
+    <div class="platform-group" role="radiogroup" aria-label="标题栏样式">
+      <label class="platform-option">
+        <input id="styleWindows" type="radio" name="titlebarStyle" value="windows" />
+        <div>
+          <div class="platform-title">Windows 标题栏样式</div>
+          <div class="platform-desc">窗口标题左对齐，按钮置于右侧</div>
+        </div>
+      </label>
+
+      <label class="platform-option">
+        <input id="styleMac" type="radio" name="titlebarStyle" value="mac" />
+        <div>
+          <div class="platform-title">macOS 标题栏样式</div>
+          <div class="platform-desc">窗口标题居中，按钮红绿灯样式置于左侧</div>
+        </div>
+      </label>
+    </div>
 
     <div class="row">
       <div class="label">为当前站点注入</div>
@@ -214,28 +273,7 @@
     <div class="row">
       <div class="label">自动对疑似 fnOS WebUI 页面启用</div>
       <label class="switch">
-        <input id="autoPrivate" type="checkbox" />
-        <span class="slider">
-          <svg id="mask1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" fill="none"
-            version="1.1" height="22" viewBox="0 0 72.556640625 80">
-            <path
-              d="M72.554062,0L0,0L0,80L72.55658,80C41.60265,80,31.700022,79.999878,23.144451,75.642105C9.5070286,69.566315,0,55.893402,0,40C0,24.108103,9.505229,10.436272,23.140579,4.3596172C31.696814,0,41.59753,0,72.554062,0Z"
-              fill-rule="evenodd" fill="var(--card-bg)" fill-opacity="1" />
-          </svg>
-          <svg id="mask2" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" fill="none"
-            version="1.1" height="22" viewBox="0 0 72.55615234375 80">
-            <path
-              d="M-0.000015258789,80L72.556152,80L72.556152,0L0.002456665,0C30.959045,0,40.859802,0,49.416016,4.3596191L49.419037,4.3611608C63.052521,10.438564,72.556152,24.109436,72.556152,40C72.556152,55.89172,63.051147,69.563431,49.416046,75.640182C40.858917,79.999878,30.957581,80,-0.000015258789,80Z"
-              fill-rule="evenodd" fill="var(--card-bg)" fill-opacity="1" />
-          </svg>
-        </span>
-      </label>
-    </div>
-
-    <div class="row">
-      <div class="label">自动对内网 IP 启用<br /><code>(10/172.16-31/192.168/localhost)</code></div>
-      <label class="switch">
-        <input id="autoPrivate" type="checkbox" />
+        <input id="autoSuspectedFnOS" type="checkbox" />
         <span class="slider">
           <svg id="mask1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" fill="none"
             version="1.1" height="22" viewBox="0 0 72.556640625 80">
