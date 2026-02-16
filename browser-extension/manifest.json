@@ -39,7 +39,9 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "mod.css",
+        "basic_mod.css",
+        "windows_titlebar_mod.css",
+        "mac_titlebar_mod.css",
         "mod.js"
       ],
       "matches": [
