@@ -1,6 +1,6 @@
 <div align="center">
 <h1>
-   <img height="28" alt="image" src="https://github.com/user-attachments/assets/3984cd0e-f3ed-4727-8bfe-67b8969479d0" />
+   <picture>
      <source 
     srcset="https://github.com/user-attachments/assets/3984cd0e-f3ed-4727-8bfe-67b8969479d0" 
     media="(prefers-color-scheme: dark)" 
@@ -9,6 +9,10 @@
   <source 
     srcset="https://github.com/user-attachments/assets/4203f08b-7eb8-480c-aa94-582bd0eefa65" 
     media="(prefers-color-scheme: light)" 
+    height="28"
+  />
+  <img 
+    src="https://github.com/user-attachments/assets/4203f08b-7eb8-480c-aa94-582bd0eefa65" 
     height="28"
   />
 </picture>
