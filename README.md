@@ -1,6 +1,6 @@
 <div align="center">
-<img width="64" height="64" alt="Group 4" src="https://github.com/user-attachments/assets/babf83e2-424d-466f-a50c-f2045481f045" />
-<h1>FnOS_UI_Mods</h1>
+<h1><img height="28" alt="image" src="https://github.com/user-attachments/assets/3984cd0e-f3ed-4727-8bfe-67b8969479d0" />
+</h1>
 <p>为 FnOS 的 UI 增加平滑圆角、毛玻璃背景及更多的悬停动画</p>
 <img width="1944" height="1104" alt="截屏" src="https://github.com/user-attachments/assets/2c8badad-ad59-480c-b46d-19cf1dfd98f5" />
 <p>*图中字体为 Inter + OPPO Sans 4.0，项目内不提供相关字体。</p>
