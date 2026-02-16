@@ -6,10 +6,32 @@
   const TITLEBAR_STYLE_ID = 'fnos-ui-mods-titlebar-style';
   const SCRIPT_ID = 'fnos-ui-mods-script';
   const THEME_STYLE_ID = 'fnos-ui-mods-theme-style';
+  const FONT_STYLE_ID = 'fnos-ui-mods-font-style';
+
   const THEME_DEFAULT_BRAND = '#0066ff';
   const BRAND_LIGHTNESS_MIN = 0.2;
   const BRAND_LIGHTNESS_MAX = 0.8;
+
+  const FONT_LOCAL_DATA_KEY = 'customFontDataUrl';
+  const FONT_LOCAL_NAME_KEY = 'customFontFileName';
+  const FONT_LOCAL_FORMAT_KEY = 'customFontFormat';
+  const FONT_DEFAULT_FACE_NAME = 'FnOSCustomFont';
+  const FONT_DEFAULT_SETTINGS = {
+    enabled: false,
+    family: '',
+    weight: '',
+    featureSettings: '',
+    faceName: FONT_DEFAULT_FACE_NAME,
+    url: ''
+  };
+
   let currentBrandColor = THEME_DEFAULT_BRAND;
+  let currentFontSettings = { ...FONT_DEFAULT_SETTINGS };
+  let currentUploadedFontDataUrl = '';
+  let currentUploadedFontFileName = '';
+  let currentUploadedFontFormat = '';
+  let isInjectionActive = false;
+
   const TITLEBAR_STYLES = {
     windows: 'windows_titlebar_mod.css',
     mac: 'mac_titlebar_mod.css'
@@ -187,6 +209,16 @@
     return style;
   }
 
+  function getFontStyleElement() {
+    let style = document.getElementById(FONT_STYLE_ID);
+    if (!style) {
+      style = document.createElement('style');
+      style.id = FONT_STYLE_ID;
+      (document.head || document.documentElement).appendChild(style);
+    }
+    return style;
+  }
+
   function buildThemeCss(palette) {
     const selectors = [
       ':root',
@@ -230,6 +262,164 @@
     applyBrandPalette(currentBrandColor);
   }
 
+  function normalizeText(value, maxLength = 300) {
+    if (typeof value !== 'string') return '';
+    return value.trim().slice(0, maxLength);
+  }
+
+  function normalizeFontWeight(value) {
+    const raw = normalizeText(value, 16);
+    if (!raw) return '';
+    const lowered = raw.toLowerCase();
+    if (/^(normal|bold|bolder|lighter)$/.test(lowered)) {
+      return lowered;
+    }
+    if (/^\d{1,4}$/.test(raw)) {
+      const numeric = Math.max(1, Math.min(1000, Number(raw)));
+      return String(numeric);
+    }
+    return '';
+  }
+
+  function normalizeFontFaceName(value) {
+    const cleaned = normalizeText(value, 64).replace(/["'`]/g, '');
+    return cleaned || FONT_DEFAULT_FACE_NAME;
+  }
+
+  function normalizeFontUrl(value) {
+    const raw = normalizeText(value, 800);
+    if (!raw) return '';
+    try {
+      const parsed = new URL(raw);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        return '';
+      }
+      return parsed.toString();
+    } catch (_error) {
+      return '';
+    }
+  }
+
+  function normalizeFontSettings(raw) {
+    return {
+      enabled: Boolean(raw?.enabled),
+      family: normalizeText(raw?.family, 400),
+      weight: normalizeFontWeight(raw?.weight),
+      featureSettings: normalizeText(raw?.featureSettings, 200),
+      faceName: normalizeFontFaceName(raw?.faceName),
+      url: normalizeFontUrl(raw?.url)
+    };
+  }
+
+  function escapeCssString(value) {
+    return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+  }
+
+  function inferFontFormat(source, fallback) {
+    const lower = `${source || ''} ${fallback || ''}`.toLowerCase();
+    if (lower.includes('woff2')) return 'woff2';
+    if (lower.includes('woff')) return 'woff';
+    if (lower.includes('otf') || lower.includes('opentype')) return 'opentype';
+    if (lower.includes('ttf') || lower.includes('truetype')) return 'truetype';
+    return '';
+  }
+
+  function buildFontOverrideCss(settings) {
+    if (!settings.enabled) return '';
+
+    const faceName = normalizeFontFaceName(settings.faceName);
+    const escapedFaceName = escapeCssString(faceName);
+    const fontBlocks = [];
+    const familyParts = [];
+
+    if (currentUploadedFontDataUrl) {
+      const format =
+        currentUploadedFontFormat ||
+        inferFontFormat(currentUploadedFontFileName, currentUploadedFontDataUrl);
+      const formatToken = format ? ` format("${format}")` : '';
+      fontBlocks.push(
+        `@font-face {\n` +
+          `  font-family: "${escapedFaceName}";\n` +
+          `  src: url("${escapeCssString(currentUploadedFontDataUrl)}")${formatToken};\n` +
+          `  font-display: swap;\n` +
+          `}`
+      );
+      familyParts.push(`"${escapedFaceName}"`);
+    } else if (settings.url) {
+      const format = inferFontFormat(settings.url);
+      const formatToken = format ? ` format("${format}")` : '';
+      fontBlocks.push(
+        `@font-face {\n` +
+          `  font-family: "${escapedFaceName}";\n` +
+          `  src: url("${escapeCssString(settings.url)}")${formatToken};\n` +
+          `  font-display: swap;\n` +
+          `}`
+      );
+      familyParts.push(`"${escapedFaceName}"`);
+    }
+
+    if (settings.family) {
+      familyParts.push(settings.family);
+    }
+
+    if (!familyParts.length) return fontBlocks.join('\n\n');
+
+    const declarations = [`  font-family: ${familyParts.join(', ')} !important;`];
+    if (settings.weight) {
+      declarations.push(`  font-weight: ${settings.weight} !important;`);
+    }
+    if (settings.featureSettings) {
+      declarations.push(
+        `  font-feature-settings: ${settings.featureSettings} !important;`
+      );
+    }
+
+    const selectors = [
+      ':root',
+      'body',
+      '#root',
+      '#root *',
+      '.semi-theme',
+      '.semi-theme *'
+    ].join(', ');
+
+    const ruleBlock = `${selectors} {\n${declarations.join('\n')}\n}`;
+    if (!fontBlocks.length) return ruleBlock;
+    return `${fontBlocks.join('\n\n')}\n\n${ruleBlock}`;
+  }
+
+  function updateFontSettings(nextSettings) {
+    currentFontSettings = normalizeFontSettings(nextSettings || currentFontSettings);
+    const style = getFontStyleElement();
+    style.textContent = buildFontOverrideCss(currentFontSettings);
+  }
+
+  async function loadFontAssetFromStorage() {
+    try {
+      const localState = await chrome.storage.local.get({
+        [FONT_LOCAL_DATA_KEY]: '',
+        [FONT_LOCAL_NAME_KEY]: '',
+        [FONT_LOCAL_FORMAT_KEY]: ''
+      });
+      currentUploadedFontDataUrl =
+        typeof localState[FONT_LOCAL_DATA_KEY] === 'string'
+          ? localState[FONT_LOCAL_DATA_KEY]
+          : '';
+      currentUploadedFontFileName =
+        typeof localState[FONT_LOCAL_NAME_KEY] === 'string'
+          ? localState[FONT_LOCAL_NAME_KEY]
+          : '';
+      currentUploadedFontFormat =
+        typeof localState[FONT_LOCAL_FORMAT_KEY] === 'string'
+          ? localState[FONT_LOCAL_FORMAT_KEY]
+          : '';
+    } catch (_error) {
+      currentUploadedFontDataUrl = '';
+      currentUploadedFontFileName = '';
+      currentUploadedFontFormat = '';
+    }
+  }
+
   function injectStyle(id, href) {
     let link = document.getElementById(id);
     if (!link) {
@@ -261,9 +451,11 @@
     (document.head || document.documentElement).appendChild(script);
   }
 
-  function startInject(titlebarStyle, brandColor) {
+  function startInject(titlebarStyle, brandColor, fontSettings) {
+    isInjectionActive = true;
     injectStyles(titlebarStyle);
     updateBrandColor(brandColor);
+    updateFontSettings(fontSettings || currentFontSettings);
     injectScript();
   }
 
@@ -294,21 +486,11 @@
       .getEntriesByType('resource')
       .some((entry) => typeof entry?.name === 'string' && entry.name.includes('/appcgi/'));
 
-    const brandHintText = [
-      document.title || '',
-      document.documentElement?.lang || '',
-      document
-        .querySelector('meta[name="application-name"], meta[property="og:site_name"]')
-        ?.getAttribute('content') || ''
-    ].join(' ');
-    const hasBrandText = /飞牛|fnos|fygo/i.test(brandHintText);
-
     return (
       isKnownFnOSDomain ||
       hasFnOSToken ||
       hasFnOSDomMarkers ||
-      hasAppCgiResource ||
-      hasBrandText
+      hasAppCgiResource
     );
   }
 
@@ -339,9 +521,20 @@
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === 'FNOS_APPLY') {
-      startInject(message.titlebarStyle, message.brandColor ?? currentBrandColor);
-      sendResponse({ applied: true });
-      return;
+      (async () => {
+        if (message.refreshFontAsset) {
+          await loadFontAssetFromStorage();
+        }
+
+        startInject(
+          message.titlebarStyle,
+          message.brandColor ?? currentBrandColor,
+          message.fontSettings ?? currentFontSettings
+        );
+
+        sendResponse({ applied: true });
+      })();
+      return true;
     }
 
     if (message?.type !== 'FNOS_CHECK') return;
@@ -358,27 +551,131 @@
     return true;
   });
 
+  const fontAssetReady = loadFontAssetFromStorage();
+
   chrome.storage.sync.get(
     {
       enabledOrigins: [],
       autoEnableSuspectedFnOS: true,
       titlebarStyle: 'windows',
-      brandColor: THEME_DEFAULT_BRAND
+      brandColor: THEME_DEFAULT_BRAND,
+      fontOverrideEnabled: FONT_DEFAULT_SETTINGS.enabled,
+      fontFamily: FONT_DEFAULT_SETTINGS.family,
+      fontWeight: FONT_DEFAULT_SETTINGS.weight,
+      fontFeatureSettings: FONT_DEFAULT_SETTINGS.featureSettings,
+      fontFaceName: FONT_DEFAULT_SETTINGS.faceName,
+      fontUrl: FONT_DEFAULT_SETTINGS.url
     },
-    async ({ enabledOrigins, autoEnableSuspectedFnOS, titlebarStyle, brandColor }) => {
+    async ({
+      enabledOrigins,
+      autoEnableSuspectedFnOS,
+      titlebarStyle,
+      brandColor,
+      fontOverrideEnabled,
+      fontFamily,
+      fontWeight,
+      fontFeatureSettings,
+      fontFaceName,
+      fontUrl
+    }) => {
+      await fontAssetReady;
+
       const isWhitelisted = Array.isArray(enabledOrigins) && enabledOrigins.includes(ORIGIN);
       const matchesFnOSUi = await waitForFnOSSignature();
       const autoEnabled = autoEnableSuspectedFnOS && matchesFnOSUi;
 
+      const syncedFontSettings = normalizeFontSettings({
+        enabled: fontOverrideEnabled,
+        family: fontFamily,
+        weight: fontWeight,
+        featureSettings: fontFeatureSettings,
+        faceName: fontFaceName,
+        url: fontUrl
+      });
+
       if (isWhitelisted || autoEnabled) {
-        startInject(titlebarStyle, brandColor);
+        startInject(titlebarStyle, brandColor, syncedFontSettings);
+      } else {
+        currentFontSettings = syncedFontSettings;
       }
     }
   );
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== 'sync') return;
-    if (!changes.brandColor) return;
-    updateBrandColor(changes.brandColor.newValue);
+    if (area === 'sync') {
+      if (changes.brandColor) {
+        if (!isInjectionActive) {
+          const normalized = normalizeHex(changes.brandColor.newValue) || THEME_DEFAULT_BRAND;
+          currentBrandColor = clampBrandLightness(normalized);
+        } else {
+          updateBrandColor(changes.brandColor.newValue);
+        }
+      }
+
+      const hasFontChange =
+        changes.fontOverrideEnabled ||
+        changes.fontFamily ||
+        changes.fontWeight ||
+        changes.fontFeatureSettings ||
+        changes.fontFaceName ||
+        changes.fontUrl;
+
+      if (hasFontChange) {
+        const nextFontSettings = {
+          enabled: changes.fontOverrideEnabled
+            ? changes.fontOverrideEnabled.newValue
+            : currentFontSettings.enabled,
+          family: changes.fontFamily
+            ? changes.fontFamily.newValue
+            : currentFontSettings.family,
+          weight: changes.fontWeight
+            ? changes.fontWeight.newValue
+            : currentFontSettings.weight,
+          featureSettings: changes.fontFeatureSettings
+            ? changes.fontFeatureSettings.newValue
+            : currentFontSettings.featureSettings,
+          faceName: changes.fontFaceName
+            ? changes.fontFaceName.newValue
+            : currentFontSettings.faceName,
+          url: changes.fontUrl ? changes.fontUrl.newValue : currentFontSettings.url
+        };
+        if (!isInjectionActive) {
+          currentFontSettings = normalizeFontSettings(nextFontSettings);
+        } else {
+          updateFontSettings(nextFontSettings);
+        }
+      }
+      return;
+    }
+
+    if (area !== 'local') return;
+
+    if (changes[FONT_LOCAL_DATA_KEY]) {
+      currentUploadedFontDataUrl =
+        typeof changes[FONT_LOCAL_DATA_KEY].newValue === 'string'
+          ? changes[FONT_LOCAL_DATA_KEY].newValue
+          : '';
+    }
+    if (changes[FONT_LOCAL_NAME_KEY]) {
+      currentUploadedFontFileName =
+        typeof changes[FONT_LOCAL_NAME_KEY].newValue === 'string'
+          ? changes[FONT_LOCAL_NAME_KEY].newValue
+          : '';
+    }
+    if (changes[FONT_LOCAL_FORMAT_KEY]) {
+      currentUploadedFontFormat =
+        typeof changes[FONT_LOCAL_FORMAT_KEY].newValue === 'string'
+          ? changes[FONT_LOCAL_FORMAT_KEY].newValue
+          : '';
+    }
+
+    if (
+      changes[FONT_LOCAL_DATA_KEY] ||
+      changes[FONT_LOCAL_NAME_KEY] ||
+      changes[FONT_LOCAL_FORMAT_KEY]
+    ) {
+      if (!isInjectionActive) return;
+      updateFontSettings(currentFontSettings);
+    }
   });
 })();

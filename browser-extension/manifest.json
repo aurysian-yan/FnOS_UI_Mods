@@ -5,7 +5,8 @@
   "version": "1.0.1",
   "permissions": [
     "storage",
-    "tabs"
+    "tabs",
+    "unlimitedStorage"
   ],
   "host_permissions": [
     "<all_urls>"
