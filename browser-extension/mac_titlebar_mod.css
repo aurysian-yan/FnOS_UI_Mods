@@ -1,0 +1,96 @@
+/* ## 类 macOS 样式 ## */
+
+.trim-ui__app-layout--window {
+    border-radius: 38px !important;
+}
+
+.mb-1.mr-1.flex.w-0.flex-1.flex-col.overflow-auto.rounded-\[12px\].bg-\[var\(--semi-color-app-container\)\] {
+    border-radius: 34px;
+}
+
+.trim-ui__app-layout--header {
+    flex-direction: row-reverse;
+
+    --close-btn-bg-def: url(data:image/svg+xml;charset=utf-8;base64,PHN2ZyB3aWR0aD0iMTQiIGhlaWdodD0iMTQiIHZpZXdCb3g9IjAgMCAxNCAxNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMC41IiB5PSIwLjUiIHdpZHRoPSIxMyIgaGVpZ2h0PSIxMyIgcng9IjYuNSIgZmlsbD0iI0ZGNjA1OCIvPgo8cmVjdCB4PSIwLjUiIHk9IjAuNSIgd2lkdGg9IjEzIiBoZWlnaHQ9IjEzIiByeD0iNi41IiBzdHJva2U9IiNDQzJEMjUiLz4KPC9zdmc+Cg==);
+    --max-btn-bg-def: url(data:image/svg+xml;charset=utf-8;base64,PHN2ZyB3aWR0aD0iMTQiIGhlaWdodD0iMTQiIHZpZXdCb3g9IjAgMCAxNCAxNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMC41IiB5PSIwLjUiIHdpZHRoPSIxMyIgaGVpZ2h0PSIxMyIgcng9IjYuNSIgZmlsbD0iIzE5QzMzMiIvPgo8cmVjdCB4PSIwLjUiIHk9IjAuNSIgd2lkdGg9IjEzIiBoZWlnaHQ9IjEzIiByeD0iNi41IiBzdHJva2U9IiMwMDkwMDAiLz4KPC9zdmc+Cg==);
+    --min-btn-bg-def: url(data:image/svg+xml;charset=utf-8;base64,PHN2ZyB3aWR0aD0iMTQiIGhlaWdodD0iMTQiIHZpZXdCb3g9IjAgMCAxNCAxNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMC41IiB5PSIwLjUiIHdpZHRoPSIxMyIgaGVpZ2h0PSIxMyIgcng9IjYuNSIgZmlsbD0iI0ZFQkMyRSIvPgo8cmVjdCB4PSIwLjUiIHk9IjAuNSIgd2lkdGg9IjEzIiBoZWlnaHQ9IjEzIiByeD0iNi41IiBzdHJva2U9IiNDQjg5MDAiLz4KPC9zdmc+Cg==);
+
+    --close-btn-bg-hov: url(data:image/svg+xml;charset=utf-8;base64,PHN2ZyB3aWR0aD0iMTQiIGhlaWdodD0iMTQiIHZpZXdCb3g9IjAgMCAxNCAxNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMC41IiB5PSIwLjUiIHdpZHRoPSIxMyIgaGVpZ2h0PSIxMyIgcng9IjYuNSIgZmlsbD0iI0ZGNjA1OCIvPgo8cmVjdCB4PSIwLjUiIHk9IjAuNSIgd2lkdGg9IjEzIiBoZWlnaHQ9IjEzIiByeD0iNi41IiBzdHJva2U9IiNDQzJEMjUiLz4KPGcgY2xpcC1wYXRoPSJ1cmwoI2NsaXAwXzE0NF8yMDg3KSI+CjxwYXRoIGQ9Ik04Ljk4OTM4IDQuMDQwMDRDOS4yNDMxNyAzLjc4NjI1IDkuNjU1NDUgMy43ODYzNiA5LjkwOTMgNC4wNDAwNEMxMC4xNjMxIDQuMjkzODggMTAuMTYzMSA0LjcwNjEyIDkuOTA5MyA0Ljk1OTk2TDcuODkzNjggNi45NzQ2MUw5LjkwOTMgOC45OTAyM0MxMC4xNjMxIDkuMjQ0MDggMTAuMTYzMSA5LjY1NTM0IDkuOTA5MyA5LjkwOTE4QzkuNjU1NDYgMTAuMTYzIDkuMjQ0MTkgMTAuMTYzIDguOTkwMzYgOS45MDkxOEw2Ljk3NDczIDcuODkzNTVMNC45NjAwOCA5LjkxMDE2QzQuNzA2MzUgMTAuMTYzOCA0LjI5NDAxIDEwLjE2MzcgNC4wNDAxNiA5LjkxMDE2QzMuNzg2MzQgOS42NTYzMyAzLjc4NjM3IDkuMjQ0MDggNC4wNDAxNiA4Ljk5MDIzTDYuMDU0ODEgNi45NzQ2MUw0LjA0MDE2IDQuOTU5OTZDMy43ODYzMyA0LjcwNjEyIDMuNzg2MzMgNC4yOTM4OCA0LjA0MDE2IDQuMDQwMDRDNC4yOTQgMy43ODYyIDQuNzA2MjQgMy43ODYyMSA0Ljk2MDA4IDQuMDQwMDRMNi45NzQ3MyA2LjA1NDY5TDguOTg5MzggNC4wNDAwNFoiIGZpbGw9IiM5OTAwMDAiLz4KPC9nPgo8ZGVmcz4KPGNsaXBQYXRoIGlkPSJjbGlwMF8xNDRfMjA4NyI+CjxyZWN0IHdpZHRoPSI2LjQ5OTc0IiBoZWlnaHQ9IjYuNSIgZmlsbD0id2hpdGUiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDMuNzUwMTIgMy43NSkiLz4KPC9jbGlwUGF0aD4KPC9kZWZzPgo8L3N2Zz4K);
+    --max-btn-bg-hov: url(data:image/svg+xml;charset=utf-8;base64,PHN2ZyB3aWR0aD0iMTQiIGhlaWdodD0iMTQiIHZpZXdCb3g9IjAgMCAxNCAxNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMC41IiB5PSIwLjUiIHdpZHRoPSIxMyIgaGVpZ2h0PSIxMyIgcng9IjYuNSIgZmlsbD0iIzE5QzMzMiIvPgo8cmVjdCB4PSIwLjUiIHk9IjAuNSIgd2lkdGg9IjEzIiBoZWlnaHQ9IjEzIiByeD0iNi41IiBzdHJva2U9IiMwMDkwMDAiLz4KPHBhdGggZD0iTTEwLjI1IDguNTE2NkMxMC4yNSA5LjEyMzE2IDEwLjI0OTggOS40MjY0OSAxMC4xMzE4IDkuNjU4MkMxMC4wMjggOS44NjIwNSA5Ljg2MjA1IDEwLjAyOCA5LjY1ODIgMTAuMTMxOEM5LjQyNjQ5IDEwLjI0OTggOS4xMjMxNiAxMC4yNSA4LjUxNjYgMTAuMjVINC44MTA1NUwxMC4yNSA0LjgxMDU1VjguNTE2NlpNMy43NSA5LjE4OTQ1VjUuNDgzNEMzLjc1IDQuODc2ODQgMy43NTAxOSA0LjU3MzUxIDMuODY4MTYgNC4zNDE4QzMuOTcyMDMgNC4xMzc5NSA0LjEzNzk1IDMuOTcyMDMgNC4zNDE4IDMuODY4MTZDNC41NzM1MSAzLjc1MDE5IDQuODc2ODQgMy43NSA1LjQ4MzQgMy43NUg5LjE4OTQ1TDMuNzUgOS4xODk0NVoiIGZpbGw9IiMwMDVEMDAiLz4KPC9zdmc+Cg==);
+    --min-btn-bg-hov: url(data:image/svg+xml;charset=utf-8;base64,PHN2ZyB3aWR0aD0iMTQiIGhlaWdodD0iMTQiIHZpZXdCb3g9IjAgMCAxNCAxNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMC41IiB5PSIwLjUiIHdpZHRoPSIxMyIgaGVpZ2h0PSIxMyIgcng9IjYuNSIgZmlsbD0iI0ZFQkMyRSIvPgo8cmVjdCB4PSIwLjUiIHk9IjAuNSIgd2lkdGg9IjEzIiBoZWlnaHQ9IjEzIiByeD0iNi41IiBzdHJva2U9IiNDQjg5MDAiLz4KPHBhdGggZD0iTTQgN0gxMCIgc3Ryb2tlPSIjOTg1NjAwIiBzdHJva2Utd2lkdGg9IjEuMyIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+Cjwvc3ZnPgoK);
+}
+
+.trim-ui__app-layout--header-title {
+    padding-left: 0px;
+    padding-right: 85px;
+}
+
+.trim-ui__app-layout--header-title>div {
+    justify-content: center;
+}
+
+.trim-ui__app-layout--header-title>div>img {
+    height: 18px;
+    width: 18px;
+}
+
+.app-layout-header-close,
+.app-layout-header-maximize,
+.app-layout-header-minimize {
+    padding: 0 !important;
+    margin: 10px 9px 10px 0px !important;
+    height: 14px !important;
+    width: 14px !important;
+    border-radius: 100px;
+    transition: background-image 0s linear !important;
+    border: none !important;
+}
+
+.app-layout-header-close>svg,
+.app-layout-header-maximize>svg,
+.app-layout-header-minimize>svg {
+    display: none;
+}
+
+.app-layout-header-close,
+.app-layout-header-close:hover {
+    background-color: transparent !important;
+    order: 1;
+    margin-left: 16px !important;
+}
+
+.app-layout-header-maximize,
+.app-layout-header-maximize:hover {
+    background-color: transparent !important;
+    order: 3;
+}
+
+.app-layout-header-minimize,
+.app-layout-header-minimize:hover {
+    background-color: transparent !important;
+    order: 2;
+}
+
+.app-layout-header-close {
+    background-image: var(--close-btn-bg-def) !important;
+}
+
+.app-layout-header-maximize {
+    background-image: var(--max-btn-bg-def) !important;
+}
+
+.app-layout-header-minimize {
+    background-image: var(--min-btn-bg-def) !important;
+}
+
+.trim-ui__app-layout--header-title+.flex.items-center:hover .app-layout-header-close {
+    background-image: var(--close-btn-bg-hov) !important;
+}
+
+.trim-ui__app-layout--header-title+.flex.items-center:hover .app-layout-header-maximize {
+    background-image: var(--max-btn-bg-hov) !important;
+}
+
+.trim-ui__app-layout--header-title+.flex.items-center:hover .app-layout-header-minimize {
+    background-image: var(--min-btn-bg-hov) !important;
+}
