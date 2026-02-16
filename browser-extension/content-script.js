@@ -46,11 +46,25 @@
     injectScript();
   }
 
+  function hasAllClasses(element, classes) {
+    return classes.every((name) => element.classList.contains(name));
+  }
+
+  function findDirectChildByClasses(parent, classes) {
+    for (const child of parent.children) {
+      if (hasAllClasses(child, classes)) return child;
+    }
+    return null;
+  }
+
   function hasFnOSSignature() {
-    const root = document.body?.querySelector(':scope > #root');
+    const body = document.body;
+    if (!body) return false;
+
+    const root = Array.from(body.children).find((el) => el.id === 'root');
     if (!root) return false;
 
-    const rootContainer = root.querySelector(':scope > div.flex.h-screen.w-full.relative');
+    const rootContainer = findDirectChildByClasses(root, ['flex', 'h-screen', 'w-full', 'relative']);
     if (!rootContainer) return false;
 
     const backgroundContainer = rootContainer.querySelector(':scope > div.absolute.inset-0.z-0.object-contain');
@@ -85,8 +99,24 @@
   }
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type === 'FNOS_APPLY') {
+      startInject(message.titlebarStyle);
+      sendResponse({ applied: true });
+      return;
+    }
+
     if (message?.type !== 'FNOS_CHECK') return;
-    sendResponse({ isFnOSWebUi: hasFnOSSignature() });
+
+    if (!message.wait) {
+      sendResponse({ isFnOSWebUi: hasFnOSSignature() });
+      return;
+    }
+
+    waitForFnOSSignature(1500).then((isFnOSWebUi) => {
+      sendResponse({ isFnOSWebUi });
+    });
+
+    return true;
   });
 
   chrome.storage.sync.get(
