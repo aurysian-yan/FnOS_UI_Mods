@@ -1,4 +1,5 @@
 (async () => {
+  const versionEl = document.querySelector("code.version");
   const originEl = document.getElementById("origin");
   const siteToggleEl = document.getElementById("siteToggle");
   const autoSuspectedFnOSEl = document.getElementById("autoSuspectedFnOS");
@@ -6,6 +7,28 @@
   const styleMacEl = document.getElementById("styleMac");
   const platformGroupEl = document.getElementById("platformGroup");
   const firstCardEl = document.querySelector(".card");
+  const manifestVersion = chrome.runtime.getManifest().version;
+  const externalLinkEls = document.querySelectorAll(
+    'a[href^="http://"], a[href^="https://"]'
+  );
+
+  if (versionEl) {
+    versionEl.textContent = `版本 ${manifestVersion}`;
+  }
+
+  for (const linkEl of externalLinkEls) {
+    linkEl.addEventListener("click", async (event) => {
+      event.preventDefault();
+      const href = linkEl.getAttribute("href");
+      if (!href) return;
+
+      try {
+        await chrome.tabs.create({ url: href });
+      } catch (_error) {
+        window.open(href, "_blank", "noopener,noreferrer");
+      }
+    });
+  }
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const pageUrl = tab?.url ? new URL(tab.url) : null;
