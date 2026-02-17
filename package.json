@@ -1,0 +1,9 @@
+{
+  "name": "fnos-ui-mods",
+  "private": true,
+  "version": "1.0.0",
+  "description": "FnOS UI Mods build entry",
+  "scripts": {
+    "build": "node scripts/build.js"
+  }
+}

@@ -388,13 +388,357 @@ function applyFigmaSquirclesFromConfig() {
 
 })();
 
+function setupAppWindowAnimations() {
+    if (window._fnosWindowAnimationInitialized) return;
+    window._fnosWindowAnimationInitialized = true;
+
+    const WINDOW_ENTER_CLASS = 'fnos-window--enter';
+    const WINDOW_EXIT_CLASS = 'fnos-window--exit';
+    const WINDOW_EXIT_CLOSE_CLASS = 'fnos-window--exit-close';
+    const WINDOW_EXIT_MINIMIZE_CLASS = 'fnos-window--exit-minimize';
+    const WINDOW_RESTORE_CLASS = 'fnos-window--restore';
+    const ENTER_DURATION_MS = 300;
+    const EXIT_DURATION_MS = 600;
+    const RESTORE_DURATION_MS = 600;
+    const animatedWindows = new WeakSet();
+    const windowVisibility = new WeakMap();
+    const reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function shouldReduceMotion() {
+        return !!reduceMotionQuery && reduceMotionQuery.matches;
+    }
+
+    function parseAnimationDurationMs(durationValue, fallbackMs) {
+        if (typeof durationValue !== 'string' || !durationValue.trim()) return fallbackMs;
+
+        const parts = durationValue
+            .split(',')
+            .map((item) => item.trim())
+            .filter(Boolean);
+        if (!parts.length) return fallbackMs;
+
+        let maxMs = 0;
+        parts.forEach((item) => {
+            if (item.endsWith('ms')) {
+                const value = Number.parseFloat(item.slice(0, -2));
+                if (Number.isFinite(value)) maxMs = Math.max(maxMs, value);
+                return;
+            }
+            if (item.endsWith('s')) {
+                const value = Number.parseFloat(item.slice(0, -1));
+                if (Number.isFinite(value)) maxMs = Math.max(maxMs, value * 1000);
+            }
+        });
+
+        return maxMs > 0 ? maxMs : fallbackMs;
+    }
+
+    function getCurrentAnimationDurationMs(windowEl, fallbackMs) {
+        if (!(windowEl instanceof HTMLElement)) return fallbackMs;
+        const computedStyle = window.getComputedStyle(windowEl);
+        return parseAnimationDurationMs(computedStyle.animationDuration, fallbackMs);
+    }
+
+    function isWindowVisible(windowEl) {
+        if (!(windowEl instanceof HTMLElement)) return false;
+        if (!document.body || !document.body.contains(windowEl)) return false;
+
+        const styles = window.getComputedStyle(windowEl);
+        if (styles.display === 'none' || styles.visibility === 'hidden') return false;
+        return windowEl.getClientRects().length > 0;
+    }
+
+    function normalizeIconKey(src) {
+        if (typeof src !== 'string' || !src.trim()) return '';
+        try {
+            const url = new URL(src, window.location.origin);
+            let path = url.pathname.toLowerCase();
+            path = path.replace(/icon_\{0\}\.png$/, 'icon.png');
+            return path;
+        } catch {
+            return src.split('?')[0].toLowerCase();
+        }
+    }
+
+    function getWindowIconKey(windowEl) {
+        if (!(windowEl instanceof HTMLElement)) return '';
+        const img = windowEl.querySelector('.trim-ui__app-layout--header-title img');
+        if (!(img instanceof HTMLImageElement)) return '';
+        const src = img.getAttribute('src') || img.getAttribute('data-src') || '';
+        return normalizeIconKey(src);
+    }
+
+    function getTaskbarIconEntries() {
+        const navRoot = document.querySelector('.h-screen.fixed.left-0');
+        if (!(navRoot instanceof Element)) return [];
+
+        const icons = Array.from(navRoot.querySelectorAll('img'));
+        return icons
+            .map((img) => {
+                if (!(img instanceof HTMLImageElement)) return null;
+                const src = img.getAttribute('src') || img.getAttribute('data-src') || '';
+                const key = normalizeIconKey(src);
+                if (!key) return null;
+                if (!key.includes('/static/app/icons/') && !key.includes('/app-center-static/serviceicon/')) {
+                    return null;
+                }
+
+                const clickable =
+                    img.closest('[tabindex]') ||
+                    img.closest('.flex.h-9') ||
+                    img.closest('.flex.h-10.w-\\[47px\\]') ||
+                    img;
+                if (!(clickable instanceof HTMLElement)) return null;
+
+                const rect = clickable.getBoundingClientRect();
+                if (rect.width <= 0 || rect.height <= 0) return null;
+
+                return {
+                    key,
+                    rect,
+                    size: Math.max(1, Math.min(rect.width, rect.height))
+                };
+            })
+            .filter(Boolean);
+    }
+
+    function resolveTaskbarTarget(windowEl) {
+        const taskbarEntries = getTaskbarIconEntries();
+        if (!taskbarEntries.length) return null;
+
+        const allWindows = Array.from(document.querySelectorAll('.trim-ui__app-layout--window'));
+        const globalWindowIndex = allWindows.indexOf(windowEl);
+        const safeGlobalIndex = globalWindowIndex >= 0 ? globalWindowIndex : 0;
+
+        const windowIconKey = getWindowIconKey(windowEl);
+        let candidates = taskbarEntries;
+        let targetIndex = safeGlobalIndex;
+
+        if (windowIconKey) {
+            const sameAppEntries = taskbarEntries.filter((entry) => entry.key === windowIconKey);
+            if (sameAppEntries.length) {
+                const sameAppWindows = allWindows.filter((item) => getWindowIconKey(item) === windowIconKey);
+                const sameAppIndex = sameAppWindows.indexOf(windowEl);
+                candidates = sameAppEntries;
+                targetIndex = sameAppIndex >= 0 ? sameAppIndex : 0;
+            }
+        }
+
+        const resolved = candidates[Math.min(targetIndex, candidates.length - 1)] || candidates[0];
+        if (!resolved) return null;
+
+        return {
+            x: resolved.rect.left + resolved.rect.width * 0.5,
+            y: resolved.rect.top + resolved.rect.height * 0.5,
+            size: resolved.size
+        };
+    }
+
+    function animateWindowRestore(windowEl) {
+        if (!(windowEl instanceof HTMLElement)) return;
+        if (shouldReduceMotion()) return;
+        if (!isWindowVisible(windowEl)) return;
+
+        windowEl.classList.remove(
+            WINDOW_ENTER_CLASS,
+            WINDOW_EXIT_CLASS,
+            WINDOW_EXIT_CLOSE_CLASS,
+            WINDOW_EXIT_MINIMIZE_CLASS
+        );
+        windowEl.classList.add(WINDOW_RESTORE_CLASS);
+
+        const restoreDurationMs = getCurrentAnimationDurationMs(windowEl, RESTORE_DURATION_MS);
+        window.setTimeout(() => {
+            windowEl.classList.remove(WINDOW_RESTORE_CLASS);
+        }, restoreDurationMs);
+    }
+
+    function updateWindowVisibility(windowEl) {
+        if (!(windowEl instanceof HTMLElement)) return;
+
+        const isVisible = isWindowVisible(windowEl);
+        const previousVisible = windowVisibility.get(windowEl);
+        windowVisibility.set(windowEl, isVisible);
+
+        if (
+            previousVisible === false &&
+            isVisible &&
+            windowEl.dataset.fnosWindowRestorePending === '1'
+        ) {
+            animateWindowRestore(windowEl);
+            windowEl.removeAttribute('data-fnos-window-restore-pending');
+        }
+    }
+
+    function setMinimizeMotionVars(windowEl) {
+        if (!(windowEl instanceof HTMLElement)) return;
+
+        const rect = windowEl.getBoundingClientRect();
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+        const windowCenterX = rect.left + rect.width * 0.5;
+        const windowCenterY = rect.top + rect.height * 0.5;
+
+        // 优先飞向对应任务栏图标中心；匹配不到时回退到左侧中线
+        const resolvedTarget = resolveTaskbarTarget(windowEl);
+        const targetX = resolvedTarget ? resolvedTarget.x : Math.max(34, viewportWidth * 0.022);
+        const targetY = resolvedTarget ? resolvedTarget.y : viewportHeight * 0.50;
+        const deltaX = targetX - windowCenterX;
+        const deltaY = targetY - windowCenterY;
+
+        // 目标缩放到接近对应图标尺寸，避免不同窗口大小下观感差异过大
+        const targetSize = resolvedTarget ? resolvedTarget.size : 64;
+        const widthScale = targetSize / Math.max(rect.width, 1);
+        const heightScale = targetSize / Math.max(rect.height, 1);
+        const minimizeScale = Math.max(0.08, Math.min(0.26, Math.min(widthScale, heightScale)));
+
+        windowEl.style.setProperty('--fnos-window-minimize-dx', `${deltaX}px`);
+        windowEl.style.setProperty('--fnos-window-minimize-dy', `${deltaY}px`);
+        windowEl.style.setProperty('--fnos-window-minimize-scale', `${minimizeScale}`);
+    }
+
+    function animateWindowIn(windowEl) {
+        if (!(windowEl instanceof HTMLElement)) return;
+        if (!isWindowVisible(windowEl)) return;
+        if (animatedWindows.has(windowEl)) return;
+        animatedWindows.add(windowEl);
+        if (shouldReduceMotion()) return;
+
+        windowEl.classList.add(WINDOW_ENTER_CLASS);
+        const enterDurationMs = getCurrentAnimationDurationMs(windowEl, ENTER_DURATION_MS);
+        window.setTimeout(() => {
+            windowEl.classList.remove(WINDOW_ENTER_CLASS);
+        }, enterDurationMs);
+    }
+
+    function scanWindowNodes(node) {
+        if (!(node instanceof Element)) return;
+        if (node.classList.contains('trim-ui__app-layout--window')) {
+            animateWindowIn(node);
+            updateWindowVisibility(node);
+        }
+        node.querySelectorAll('.trim-ui__app-layout--window').forEach((windowEl) => {
+            animateWindowIn(windowEl);
+            updateWindowVisibility(windowEl);
+        });
+    }
+
+    function animateWindowOut(button, exitClass) {
+        const windowEl = button.closest('.trim-ui__app-layout--window');
+        if (!(windowEl instanceof HTMLElement)) return false;
+        if (windowEl.dataset.fnosWindowAnimatingOut === '1') return true;
+        if (shouldReduceMotion()) return false;
+
+        windowEl.dataset.fnosWindowAnimatingOut = '1';
+        if (exitClass === WINDOW_EXIT_MINIMIZE_CLASS) {
+            windowEl.dataset.fnosWindowRestorePending = '1';
+            setMinimizeMotionVars(windowEl);
+        }
+
+        windowEl.classList.remove(WINDOW_ENTER_CLASS);
+        windowEl.classList.add(WINDOW_EXIT_CLASS, exitClass);
+
+        const exitDurationMs = getCurrentAnimationDurationMs(windowEl, EXIT_DURATION_MS);
+        window.setTimeout(() => {
+            button.dataset.fnosWindowAnimationBypass = '1';
+            button.click();
+            button.removeAttribute('data-fnos-window-animation-bypass');
+
+            window.setTimeout(() => {
+                if (!document.body.contains(windowEl)) return;
+                windowEl.classList.remove(WINDOW_EXIT_CLASS, WINDOW_EXIT_CLOSE_CLASS, WINDOW_EXIT_MINIMIZE_CLASS);
+                windowEl.removeAttribute('data-fnos-window-animating-out');
+                updateWindowVisibility(windowEl);
+            }, 100);
+        }, exitDurationMs);
+
+        return true;
+    }
+
+    function bindExitAnimation() {
+        document.addEventListener('click', (event) => {
+            const target = event.target;
+            if (!(target instanceof Element)) return;
+
+            const button = target.closest('.app-layout-header-close, .app-layout-header-minimize');
+            if (!(button instanceof HTMLElement)) return;
+            if (button.dataset.fnosWindowAnimationBypass === '1') return;
+
+            const exitClass = button.classList.contains('app-layout-header-minimize')
+                ? WINDOW_EXIT_MINIMIZE_CLASS
+                : WINDOW_EXIT_CLOSE_CLASS;
+            const handled = animateWindowOut(button, exitClass);
+            if (!handled) return;
+
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            event.stopPropagation();
+        }, true);
+    }
+
+    function observeWindowCreation() {
+        function startObserving() {
+            if (!document.body) return;
+            scanWindowNodes(document.body);
+
+            const windowObserver = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'childList') {
+                        mutation.addedNodes.forEach(scanWindowNodes);
+                        return;
+                    }
+                    if (mutation.type === 'attributes') {
+                        const target = mutation.target;
+                        if (!(target instanceof Element)) return;
+
+                        if (target.classList.contains('trim-ui__app-layout--window')) {
+                            updateWindowVisibility(target);
+                        }
+                        target.querySelectorAll('.trim-ui__app-layout--window').forEach(updateWindowVisibility);
+
+                        const parentWindow = target.closest('.trim-ui__app-layout--window');
+                        if (parentWindow instanceof HTMLElement) {
+                            updateWindowVisibility(parentWindow);
+                        }
+                    }
+                });
+            });
+
+            windowObserver.observe(document.body, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['class', 'style', 'hidden', 'aria-hidden']
+            });
+
+            window._cleanupWindowAnimationObservers = () => {
+                windowObserver.disconnect();
+            };
+        }
+
+        if (document.body) {
+            startObserving();
+            return;
+        }
+
+        document.addEventListener('DOMContentLoaded', startObserving, { once: true });
+    }
+
+    bindExitAnimation();
+    observeWindowCreation();
+}
+
 
 // 初始化函数
 function initialize() {
 	applyFigmaSquirclesFromConfig();
+    setupAppWindowAnimations();
 }
 
 // DOM 加载完毕后执行初始化
 document.addEventListener("DOMContentLoaded", initialize);
 
 applyFigmaSquirclesFromConfig();
+if (document.readyState !== 'loading') {
+    setupAppWindowAnimations();
+}

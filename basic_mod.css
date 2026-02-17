@@ -337,7 +337,7 @@ div.absolute.right-0.top-0.z-50.flex.size-loose.items-center.justify-end.pt-2:ha
 
 .semi-image.size-full:has(img[alt="全部应用"]) img,
 .semi-image.size-full:has(img[alt="桌面"]) img {
-    display: none;
+    display: none !important;
 }
 
 .relative.flex.flex-1.flex-col:has(.flex.h-10.w-\[47px\].items-center.justify-center.gap-x-2.border-0.\!border-l-\[3px\].border-solid.border-transparent.hover\:bg-white-10) {
