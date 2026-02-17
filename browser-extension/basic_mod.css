@@ -194,17 +194,31 @@ div.absolute.right-0.top-0.z-50.flex.size-loose.items-center.justify-end.pt-2:ha
     padding: .25rem;
 }
 
-.min-w-\[6\.875rem\].rounded-lg.border.border-solid.border-\[var\(--semi-color-border-select\)\].bg-\[var\(--semi-color-bg-dropdown\)\].py-1.text-\[var\(--semi-color-text-0\)\].shadow-dropdown.left-\[105\%\].right-auto div.relative>div>div {
-    margin: 0;
-    padding: 6px 10px;
-    border-radius: calc(26px - .25rem);
-    corner-shape: superellipse(2);
-}
-
 .min-w-\[6\.875rem\].rounded-lg.border.border-solid.border-\[var\(--semi-color-border-select\)\].bg-\[var\(--semi-color-bg-dropdown\)\].py-1.text-\[var\(--semi-color-text-0\)\].shadow-dropdown.left-\[105\%\].right-auto .my-1.h-px.w-full.bg-\[var\(--semi-color-divider-1\)\] {
     margin-left: 8px !important;
     margin-right: 8px !important;
     width: calc(100% - 16px);
+}
+
+.ms-container.max-h-\[inherit\].\!overflow-visible {
+    border-radius: 0;
+    padding: 0 !important;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.min-w-\[6\.875rem\].rounded-lg.border.border-solid.border-\[var\(--semi-color-border-select\)\].bg-\[var\(--semi-color-bg-dropdown\)\].py-1.text-\[var\(--semi-color-text-0\)\].shadow-dropdown.left-\[105\%\].right-auto div.relative>div>div,
+.my-super-tight.flex.items-center.justify-between.px-4.py-2.relative.w-full.text-\[12px\].box-border.cursor-pointer.whitespace-nowrap.hover\:bg-\[var\(--semi-color-fill-0\)\] {
+    margin: 0px;
+    padding: 6px 10px;
+    border-radius: calc(26px - 0.25rem);
+    corner-shape: superellipse(2);
+    width: 100%;
+}
+
+.ms-container.max-h-\[inherit\].\!overflow-visible>.relative, .ms-container.max-h-\[inherit\].\!overflow-visible>.relative>div {
+    width: 100%;
 }
 
 /* ======== DOCK栏 ======== */
