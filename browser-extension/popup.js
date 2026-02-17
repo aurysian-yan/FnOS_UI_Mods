@@ -16,6 +16,11 @@
   const fontFeatureSettingsEl = document.getElementById("fontFeatureSettings");
   const fontFaceNameEl = document.getElementById("fontFaceName");
   const fontUrlEl = document.getElementById("fontUrl");
+  const customCodeEnabledEl = document.getElementById("customCodeEnabled");
+  const customCodeSettingsEl = document.getElementById("customCodeSettings");
+  const customCssEl = document.getElementById("customCss");
+  const customJsEl = document.getElementById("customJs");
+  const customCodeStatusEl = document.getElementById("customCodeStatus");
   const fontFileEl = document.getElementById("fontFile");
   const clearFontFileEl = document.getElementById("clearFontFile");
   const fontFileStatusEl = document.getElementById("fontFileStatus");
@@ -33,6 +38,9 @@
   const FONT_LOCAL_DATA_KEY = "customFontDataUrl";
   const FONT_LOCAL_NAME_KEY = "customFontFileName";
   const FONT_LOCAL_FORMAT_KEY = "customFontFormat";
+  const CUSTOM_CSS_LOCAL_KEY = "customCssCode";
+  const CUSTOM_JS_LOCAL_KEY = "customJsCode";
+  const CUSTOM_CODE_STATUS_DEFAULT = "失焦后自动保存并应用到当前页面";
 
   const DEFAULT_FONT_SETTINGS = {
     enabled: false,
@@ -42,11 +50,17 @@
     faceName: DEFAULT_FONT_FACE_NAME,
     url: ""
   };
+  const DEFAULT_CUSTOM_CODE_SETTINGS = {
+    enabled: false,
+    css: "",
+    js: ""
+  };
 
   let brandColor = DEFAULT_BRAND_COLOR;
   let lastSavedBrandColor = null;
 
   let fontSettings = { ...DEFAULT_FONT_SETTINGS };
+  let customCodeSettings = { ...DEFAULT_CUSTOM_CODE_SETTINGS };
   let uploadedFontDataUrl = "";
   let uploadedFontFileName = "";
   let uploadedFontFormat = "";
@@ -88,6 +102,11 @@
   function updateFontSettingsVisibility() {
     if (!fontSettingsEl || !fontOverrideEnabledEl) return;
     fontSettingsEl.style.display = fontOverrideEnabledEl.checked ? "grid" : "none";
+  }
+
+  function updateCustomCodeSettingsVisibility() {
+    if (!customCodeSettingsEl || !customCodeEnabledEl) return;
+    customCodeSettingsEl.style.display = customCodeEnabledEl.checked ? "flex" : "none";
   }
 
   function setFnUICheckedStatus(isChecked) {
@@ -257,6 +276,19 @@
     };
   }
 
+  function normalizeCodeText(value, maxLength = 120000) {
+    if (typeof value !== "string") return "";
+    return value.slice(0, maxLength);
+  }
+
+  function normalizeCustomCodeSettings(raw) {
+    return {
+      enabled: Boolean(raw?.enabled),
+      css: normalizeCodeText(raw?.css),
+      js: normalizeCodeText(raw?.js)
+    };
+  }
+
   function inferFontFormat(fileName, mimeType) {
     const lower = `${fileName || ""} ${mimeType || ""}`.toLowerCase();
     if (lower.includes("woff2")) return "woff2";
@@ -318,6 +350,25 @@
     setFontFileStatus();
   }
 
+  function setCustomCodeStatus(text) {
+    if (!customCodeStatusEl) return;
+    customCodeStatusEl.textContent = text || CUSTOM_CODE_STATUS_DEFAULT;
+  }
+
+  function setCustomCodeSettingsUI(next) {
+    if (customCodeEnabledEl) {
+      customCodeEnabledEl.checked = next.enabled;
+    }
+    if (customCssEl) {
+      customCssEl.value = next.css;
+    }
+    if (customJsEl) {
+      customJsEl.value = next.js;
+    }
+    updateCustomCodeSettingsVisibility();
+    setCustomCodeStatus("");
+  }
+
   function collectFontSettingsFromUI() {
     return normalizeFontSettings({
       enabled: fontOverrideEnabledEl?.checked,
@@ -329,8 +380,20 @@
     });
   }
 
+  function collectCustomCodeSettingsFromUI() {
+    return normalizeCustomCodeSettings({
+      enabled: customCodeEnabledEl?.checked,
+      css: customCssEl?.value,
+      js: customJsEl?.value
+    });
+  }
+
   function getFontPayload() {
     return { ...fontSettings };
+  }
+
+  function getCustomCodePayload() {
+    return { ...customCodeSettings };
   }
 
   async function safeSyncSet(data) {
@@ -395,6 +458,28 @@
     });
   }
 
+  async function saveCustomCodeSettings(next) {
+    const syncOk = await safeSyncSet({
+      customCodeEnabled: next.enabled
+    });
+    const localSetResult = await safeLocalSet({
+      [CUSTOM_CSS_LOCAL_KEY]: next.css,
+      [CUSTOM_JS_LOCAL_KEY]: next.js
+    });
+
+    if (!localSetResult.ok) {
+      setCustomCodeStatus(
+        localSetResult.isQuota
+          ? "自定义代码保存失败：存储空间不足，请精简代码后重试"
+          : "自定义代码保存失败：本地存储写入失败"
+      );
+      return false;
+    }
+
+    setCustomCodeStatus("");
+    return syncOk && localSetResult.ok;
+  }
+
   async function applyToCurrentTabIfNeeded(options = {}) {
     const shouldInject =
       siteToggleEl.checked || (autoSuspectedFnOSEl.checked && isFnOSWebUi);
@@ -407,7 +492,9 @@
         titlebarStyle: style,
         brandColor,
         fontSettings: getFontPayload(),
-        refreshFontAsset: Boolean(options.refreshFontAsset)
+        customCodeSettings: getCustomCodePayload(),
+        refreshFontAsset: Boolean(options.refreshFontAsset),
+        refreshCustomCode: Boolean(options.refreshCustomCode)
       });
     } catch (_error) {
       // ignore; content script may be unavailable for non-http(s) pages
@@ -438,6 +525,21 @@
     return applyFontSettings(collectFontSettingsFromUI(), persist);
   }
 
+  async function applyCustomCodeSettings(next, persist, options = {}) {
+    customCodeSettings = normalizeCustomCodeSettings(next);
+    setCustomCodeSettingsUI(customCodeSettings);
+    if (persist) {
+      await saveCustomCodeSettings(customCodeSettings);
+    }
+    await applyToCurrentTabIfNeeded(options);
+  }
+
+  function commitCustomCodeInputs(persist) {
+    return applyCustomCodeSettings(collectCustomCodeSettingsFromUI(), persist, {
+      refreshCustomCode: persist
+    });
+  }
+
   if (!origin || !/^https?:$/.test(pageUrl.protocol)) {
     originEl.textContent = "当前页不是 http/https 页面";
     siteToggleEl.disabled = true;
@@ -451,12 +553,16 @@
     if (fontFeatureSettingsEl) fontFeatureSettingsEl.disabled = true;
     if (fontFaceNameEl) fontFaceNameEl.disabled = true;
     if (fontUrlEl) fontUrlEl.disabled = true;
+    if (customCodeEnabledEl) customCodeEnabledEl.disabled = true;
+    if (customCssEl) customCssEl.disabled = true;
+    if (customJsEl) customJsEl.disabled = true;
     if (fontFileEl) fontFileEl.disabled = true;
     if (clearFontFileEl) clearFontFileEl.disabled = true;
 
     setFnUICheckedStatus(false);
     updatePlatformOptionsVisibility();
     updateFontSettingsVisibility();
+    updateCustomCodeSettingsVisibility();
     return;
   }
 
@@ -484,13 +590,16 @@
     fontWeight: DEFAULT_FONT_SETTINGS.weight,
     fontFeatureSettings: DEFAULT_FONT_SETTINGS.featureSettings,
     fontFaceName: DEFAULT_FONT_SETTINGS.faceName,
-    fontUrl: DEFAULT_FONT_SETTINGS.url
+    fontUrl: DEFAULT_FONT_SETTINGS.url,
+    customCodeEnabled: DEFAULT_CUSTOM_CODE_SETTINGS.enabled
   });
 
   const localState = await chrome.storage.local.get({
     [FONT_LOCAL_DATA_KEY]: "",
     [FONT_LOCAL_NAME_KEY]: "",
-    [FONT_LOCAL_FORMAT_KEY]: ""
+    [FONT_LOCAL_FORMAT_KEY]: "",
+    [CUSTOM_CSS_LOCAL_KEY]: "",
+    [CUSTOM_JS_LOCAL_KEY]: ""
   });
 
   let enabledOrigins = Array.isArray(state.enabledOrigins)
@@ -516,6 +625,11 @@
     faceName: state.fontFaceName,
     url: state.fontUrl
   });
+  customCodeSettings = normalizeCustomCodeSettings({
+    enabled: state.customCodeEnabled,
+    css: localState[CUSTOM_CSS_LOCAL_KEY],
+    js: localState[CUSTOM_JS_LOCAL_KEY]
+  });
 
   uploadedFontDataUrl =
     typeof localState[FONT_LOCAL_DATA_KEY] === "string"
@@ -539,6 +653,7 @@
 
   setBrandColorUI(brandColor);
   setFontSettingsUI(fontSettings);
+  setCustomCodeSettingsUI(customCodeSettings);
 
   updatePlatformOptionsVisibility();
 
@@ -631,6 +746,30 @@
       if (event.key !== "Enter") return;
       event.preventDefault();
       await commitFontInputs(true);
+    });
+  }
+
+  if (customCodeEnabledEl) {
+    customCodeEnabledEl.addEventListener("change", async () => {
+      await commitCustomCodeInputs(true);
+    });
+  }
+
+  for (const inputEl of [customCssEl, customJsEl]) {
+    if (!inputEl) continue;
+
+    inputEl.addEventListener("change", async () => {
+      await commitCustomCodeInputs(true);
+    });
+
+    inputEl.addEventListener("blur", async () => {
+      await commitCustomCodeInputs(true);
+    });
+
+    inputEl.addEventListener("keydown", async (event) => {
+      if (event.key !== "Enter" || (!event.ctrlKey && !event.metaKey)) return;
+      event.preventDefault();
+      await commitCustomCodeInputs(true);
     });
   }
 

@@ -512,7 +512,8 @@
     }
 
     .font-settings,
-    .color-settings {
+    .color-settings,
+    .custom-code-settings {
       width: 100%;
       margin-top: 8px;
       border: 1px solid var(--card-border);
@@ -551,6 +552,13 @@
 
     .field-input:focus {
       border-color: var(--switch-on);
+    }
+
+    .code-input {
+      min-height: 96px;
+      resize: vertical;
+      font-family: "SarasaMonoSC", monospace;
+      line-height: 1.4;
     }
 
     .file-row {
@@ -596,7 +604,8 @@
 
       .platform-group,
       .font-settings,
-      .color-settings {
+      .color-settings,
+      .custom-code-settings {
         border-radius: 16px;
         corner-shape: superellipse(1.5);
       }
@@ -805,6 +814,48 @@
         </div>
         <p id="fontFileStatus" class="field-help">未导入字体文件</p>
       </div> -->
+      </div>
+    </div>
+
+    <div class="custom-code-settings">
+      <div class="row" style="margin: 2px -4px; width: calc(100% + 4px);">
+        <div class="label">
+          自定义代码注入
+          <div class="sub">向页面注入自定义 CSS / JS（高级功能）</div>
+        </div>
+        <label class="switch">
+          <input id="customCodeEnabled" type="checkbox" />
+          <span class="slider">
+            <svg id="mask1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" fill="none"
+              version="1.1" height="22" viewBox="0 0 72.556640625 80">
+              <path
+                d="M72.554062,0L0,0L0,80L72.55658,80C41.60265,80,31.700022,79.999878,23.144451,75.642105C9.5070286,69.566315,0,55.893402,0,40C0,24.108103,9.505229,10.436272,23.140579,4.3596172C31.696814,0,41.59753,0,72.554062,0Z"
+                fill-rule="evenodd" fill="var(--card-bg)" fill-opacity="1" />
+            </svg>
+            <svg id="mask2" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" fill="none"
+              version="1.1" height="22" viewBox="0 0 72.55615234375 80">
+              <path
+                d="M-0.000015258789,80L72.556152,80L72.556152,0L0.002456665,0C30.959045,0,40.859802,0,49.416016,4.3596191L49.419037,4.3611608C63.052521,10.438564,72.556152,24.109436,72.556152,40C72.556152,55.89172,63.051147,69.563431,49.416046,75.640182C40.858917,79.999878,30.957581,80,-0.000015258789,80Z"
+                fill-rule="evenodd" fill="var(--card-bg)" fill-opacity="1" />
+            </svg>
+          </span>
+        </label>
+      </div>
+
+      <div id="customCodeSettings" style="display: flex; flex-direction: column; gap: 8px;">
+        <div class="field">
+          <p class="field-label">自定义 CSS</p>
+          <textarea id="customCss" class="field-input code-input" spellcheck="false"
+            placeholder="例如：.semi-button { border-radius: 999px !important; }"></textarea>
+        </div>
+
+        <div class="field">
+          <p class="field-label">自定义 JavaScript</p>
+          <textarea id="customJs" class="field-input code-input" spellcheck="false"
+            placeholder="例如：console.log('FnOS custom js loaded');"></textarea>
+        </div>
+
+        <p id="customCodeStatus" class="field-help">失焦后自动保存并应用到当前页面</p>
       </div>
     </div>
 

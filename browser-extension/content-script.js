@@ -7,6 +7,8 @@
   const SCRIPT_ID = 'fnos-ui-mods-script';
   const THEME_STYLE_ID = 'fnos-ui-mods-theme-style';
   const FONT_STYLE_ID = 'fnos-ui-mods-font-style';
+  const CUSTOM_CSS_STYLE_ID = 'fnos-ui-mods-custom-css-style';
+  const CUSTOM_JS_SCRIPT_ID = 'fnos-ui-mods-custom-js-script';
 
   const THEME_DEFAULT_BRAND = '#0066ff';
   const BRAND_LIGHTNESS_MIN = 0.3;
@@ -15,6 +17,8 @@
   const FONT_LOCAL_DATA_KEY = 'customFontDataUrl';
   const FONT_LOCAL_NAME_KEY = 'customFontFileName';
   const FONT_LOCAL_FORMAT_KEY = 'customFontFormat';
+  const CUSTOM_CSS_LOCAL_KEY = 'customCssCode';
+  const CUSTOM_JS_LOCAL_KEY = 'customJsCode';
   const FONT_DEFAULT_FACE_NAME = 'FnOSCustomFont';
   const FONT_DEFAULT_SETTINGS = {
     enabled: false,
@@ -24,12 +28,19 @@
     faceName: FONT_DEFAULT_FACE_NAME,
     url: ''
   };
+  const CUSTOM_CODE_DEFAULT_SETTINGS = {
+    enabled: false,
+    css: '',
+    js: ''
+  };
 
   let currentBrandColor = THEME_DEFAULT_BRAND;
   let currentFontSettings = { ...FONT_DEFAULT_SETTINGS };
+  let currentCustomCodeSettings = { ...CUSTOM_CODE_DEFAULT_SETTINGS };
   let currentUploadedFontDataUrl = '';
   let currentUploadedFontFileName = '';
   let currentUploadedFontFormat = '';
+  let lastAppliedCustomJs = '';
   let isInjectionActive = false;
 
   const TITLEBAR_STYLES = {
@@ -219,6 +230,16 @@
     return style;
   }
 
+  function getCustomCssStyleElement() {
+    let style = document.getElementById(CUSTOM_CSS_STYLE_ID);
+    if (!style) {
+      style = document.createElement('style');
+      style.id = CUSTOM_CSS_STYLE_ID;
+      (document.head || document.documentElement).appendChild(style);
+    }
+    return style;
+  }
+
   function buildThemeCss(palette) {
     const selectors = [
       ':root',
@@ -311,6 +332,19 @@
     };
   }
 
+  function normalizeCodeText(value, maxLength = 120000) {
+    if (typeof value !== 'string') return '';
+    return value.slice(0, maxLength);
+  }
+
+  function normalizeCustomCodeSettings(raw) {
+    return {
+      enabled: Boolean(raw?.enabled),
+      css: normalizeCodeText(raw?.css),
+      js: normalizeCodeText(raw?.js)
+    };
+  }
+
   function escapeCssString(value) {
     return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
   }
@@ -394,6 +428,56 @@
     style.textContent = buildFontOverrideCss(currentFontSettings);
   }
 
+  function removeElementById(id) {
+    const element = document.getElementById(id);
+    if (element) {
+      element.remove();
+    }
+  }
+
+  function injectCustomJs(code) {
+    const script = document.createElement('script');
+    script.id = CUSTOM_JS_SCRIPT_ID;
+    script.type = 'text/javascript';
+    script.textContent = code;
+    (document.head || document.documentElement).appendChild(script);
+  }
+
+  function updateCustomCodeSettings(nextSettings) {
+    currentCustomCodeSettings = normalizeCustomCodeSettings(
+      nextSettings || currentCustomCodeSettings
+    );
+    const { enabled, css, js } = currentCustomCodeSettings;
+
+    if (!enabled) {
+      removeElementById(CUSTOM_CSS_STYLE_ID);
+      removeElementById(CUSTOM_JS_SCRIPT_ID);
+      lastAppliedCustomJs = '';
+      return;
+    }
+
+    if (css) {
+      const style = getCustomCssStyleElement();
+      style.textContent = css;
+    } else {
+      removeElementById(CUSTOM_CSS_STYLE_ID);
+    }
+
+    if (!js) {
+      removeElementById(CUSTOM_JS_SCRIPT_ID);
+      lastAppliedCustomJs = '';
+      return;
+    }
+
+    const shouldReinject =
+      js !== lastAppliedCustomJs || !document.getElementById(CUSTOM_JS_SCRIPT_ID);
+    if (!shouldReinject) return;
+
+    removeElementById(CUSTOM_JS_SCRIPT_ID);
+    injectCustomJs(js);
+    lastAppliedCustomJs = js;
+  }
+
   async function loadFontAssetFromStorage() {
     try {
       const localState = await chrome.storage.local.get({
@@ -417,6 +501,26 @@
       currentUploadedFontDataUrl = '';
       currentUploadedFontFileName = '';
       currentUploadedFontFormat = '';
+    }
+  }
+
+  async function loadCustomCodeFromStorage() {
+    try {
+      const localState = await chrome.storage.local.get({
+        [CUSTOM_CSS_LOCAL_KEY]: '',
+        [CUSTOM_JS_LOCAL_KEY]: ''
+      });
+      currentCustomCodeSettings = normalizeCustomCodeSettings({
+        enabled: currentCustomCodeSettings.enabled,
+        css: localState[CUSTOM_CSS_LOCAL_KEY],
+        js: localState[CUSTOM_JS_LOCAL_KEY]
+      });
+    } catch (_error) {
+      currentCustomCodeSettings = normalizeCustomCodeSettings({
+        enabled: currentCustomCodeSettings.enabled,
+        css: '',
+        js: ''
+      });
     }
   }
 
@@ -451,11 +555,12 @@
     (document.head || document.documentElement).appendChild(script);
   }
 
-  function startInject(titlebarStyle, brandColor, fontSettings) {
+  function startInject(titlebarStyle, brandColor, fontSettings, customCodeSettings) {
     isInjectionActive = true;
     injectStyles(titlebarStyle);
     updateBrandColor(brandColor);
     updateFontSettings(fontSettings || currentFontSettings);
+    updateCustomCodeSettings(customCodeSettings || currentCustomCodeSettings);
     injectScript();
   }
 
@@ -525,11 +630,15 @@
         if (message.refreshFontAsset) {
           await loadFontAssetFromStorage();
         }
+        if (message.refreshCustomCode) {
+          await loadCustomCodeFromStorage();
+        }
 
         startInject(
           message.titlebarStyle,
           message.brandColor ?? currentBrandColor,
-          message.fontSettings ?? currentFontSettings
+          message.fontSettings ?? currentFontSettings,
+          message.customCodeSettings ?? currentCustomCodeSettings
         );
 
         sendResponse({ applied: true });
@@ -552,6 +661,7 @@
   });
 
   const fontAssetReady = loadFontAssetFromStorage();
+  const customCodeReady = loadCustomCodeFromStorage();
 
   chrome.storage.sync.get(
     {
@@ -564,7 +674,8 @@
       fontWeight: FONT_DEFAULT_SETTINGS.weight,
       fontFeatureSettings: FONT_DEFAULT_SETTINGS.featureSettings,
       fontFaceName: FONT_DEFAULT_SETTINGS.faceName,
-      fontUrl: FONT_DEFAULT_SETTINGS.url
+      fontUrl: FONT_DEFAULT_SETTINGS.url,
+      customCodeEnabled: CUSTOM_CODE_DEFAULT_SETTINGS.enabled
     },
     async ({
       enabledOrigins,
@@ -576,9 +687,10 @@
       fontWeight,
       fontFeatureSettings,
       fontFaceName,
-      fontUrl
+      fontUrl,
+      customCodeEnabled
     }) => {
-      await fontAssetReady;
+      await Promise.all([fontAssetReady, customCodeReady]);
 
       const isWhitelisted = Array.isArray(enabledOrigins) && enabledOrigins.includes(ORIGIN);
       const matchesFnOSUi = await waitForFnOSSignature();
@@ -592,11 +704,22 @@
         faceName: fontFaceName,
         url: fontUrl
       });
+      const syncedCustomCodeSettings = normalizeCustomCodeSettings({
+        enabled: customCodeEnabled,
+        css: currentCustomCodeSettings.css,
+        js: currentCustomCodeSettings.js
+      });
 
       if (isWhitelisted || autoEnabled) {
-        startInject(titlebarStyle, brandColor, syncedFontSettings);
+        startInject(
+          titlebarStyle,
+          brandColor,
+          syncedFontSettings,
+          syncedCustomCodeSettings
+        );
       } else {
         currentFontSettings = syncedFontSettings;
+        currentCustomCodeSettings = syncedCustomCodeSettings;
       }
     }
   );
@@ -645,6 +768,19 @@
           updateFontSettings(nextFontSettings);
         }
       }
+
+      if (changes.customCodeEnabled) {
+        const nextCustomCodeSettings = {
+          enabled: changes.customCodeEnabled.newValue,
+          css: currentCustomCodeSettings.css,
+          js: currentCustomCodeSettings.js
+        };
+        if (!isInjectionActive) {
+          currentCustomCodeSettings = normalizeCustomCodeSettings(nextCustomCodeSettings);
+        } else {
+          updateCustomCodeSettings(nextCustomCodeSettings);
+        }
+      }
       return;
     }
 
@@ -668,6 +804,20 @@
           ? changes[FONT_LOCAL_FORMAT_KEY].newValue
           : '';
     }
+    if (changes[CUSTOM_CSS_LOCAL_KEY]) {
+      currentCustomCodeSettings = normalizeCustomCodeSettings({
+        enabled: currentCustomCodeSettings.enabled,
+        css: changes[CUSTOM_CSS_LOCAL_KEY].newValue,
+        js: currentCustomCodeSettings.js
+      });
+    }
+    if (changes[CUSTOM_JS_LOCAL_KEY]) {
+      currentCustomCodeSettings = normalizeCustomCodeSettings({
+        enabled: currentCustomCodeSettings.enabled,
+        css: currentCustomCodeSettings.css,
+        js: changes[CUSTOM_JS_LOCAL_KEY].newValue
+      });
+    }
 
     if (
       changes[FONT_LOCAL_DATA_KEY] ||
@@ -676,6 +826,10 @@
     ) {
       if (!isInjectionActive) return;
       updateFontSettings(currentFontSettings);
+    }
+    if (changes[CUSTOM_CSS_LOCAL_KEY] || changes[CUSTOM_JS_LOCAL_KEY]) {
+      if (!isInjectionActive) return;
+      updateCustomCodeSettings(currentCustomCodeSettings);
     }
   });
 })();
