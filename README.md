@@ -37,12 +37,19 @@
 - 自定义 UI 字体
 
 ### 可选项
-窗口标题栏提供传统（类 Windows）与反转（类 macOS）两种样式：
+#### 窗口标题栏
+提供传统（类 Windows）与反转（类 macOS）两种样式：
 
 !["传统"样式预览](https://github.com/user-attachments/assets/518ea41c-bc6e-4acf-a7e2-dac3107c382f)
 !["反转"样式预览](https://github.com/user-attachments/assets/821c2176-768a-4eaa-8a38-5c6d56c6e2dd)
 
-两套样式均在项目内提供，可在构建 mod css 时在终端内进行配置。如果你使用浏览器插件注入，即可在插件弹出窗口进行配置。
+#### 启动台
+提供传统（类 macOS 全屏启动台）与聚焦（类 macOS 新版聚焦启动台）两种样式：
+
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/d05ac1fd-f4d9-485f-9a53-aa56ef5484a2" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/8da9e62b-19ff-4980-bd08-bc3b5401352b" />
+
+以上可选项均在项目内提供，可在构建 mod css 时在终端内进行配置。如果你使用浏览器插件注入，即可在插件弹出窗口进行配置。
 
 ## 使用方法：
 
@@ -53,7 +60,7 @@
 2. 打开 Chrome / Edge 扩展管理页。
 3. 开启“开发者模式”。
 4. 选择“加载已解压的扩展程序”，目录选本项目文件夹。
-5. 打开插件弹出窗口设置注入选项，启用注入和配置可选项大多数时候可以即时生效，如果遇到没有生效，或是需要取消注入请刷新页面。
+5. 打开插件弹出窗口设置注入选项，启用注入和配置可选项大多数时候可以即时生效，如果遇到没有生效，或是关闭注入开关后请刷新页面。
    
 ### 直接注入至 NAS 系统文件
 
