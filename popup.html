@@ -68,6 +68,32 @@
       display: none;
     }
 
+    .blur-effect {
+      z-index: 998 !important;
+      height: 58px;
+      width: 100vw;
+      position: fixed !important;
+      pointer-events: none;
+    }
+
+    .blur-effect.update {
+      display: none;
+      transform: rotate(180deg);
+      height: 80px;
+      bottom: 0 !important;
+      top: auto !important;
+      left: 0 !important;
+      background: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 65%, transparent) 0%, transparent 100%);
+    }
+
+    body:has(.has-update) {
+      padding-bottom: 74px;
+
+      .blur-effect.update {
+        display: block;
+      }
+    }
+
     .card {
       border-top: 1px solid var(--card-border);
       padding: 13px;
@@ -100,6 +126,97 @@
       font-size: 13px;
       color: var(--muted);
       word-break: break-all;
+    }
+
+    .update-panel {
+      z-index: 9999;
+      margin: 12px;
+      width: calc(100vw - 24px);
+      border: 1px solid var(--card-border);
+      padding: 10px;
+      box-sizing: border-box;
+      background: linear-gradient(180deg,
+          color-mix(in srgb, var(--card-bg) 65%, var(--bg)) 0%,
+          color-mix(in srgb, var(--card-bg) 90%, var(--bg)) 100%);
+      gap: 8px;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      display: none;
+      border-radius: 10px;
+    }
+
+    .update-panel.has-update {
+      border-color: color-mix(in srgb, #ff6633 60%, var(--card-border));
+      display: grid;
+    }
+
+    .update-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      display: none;
+    }
+
+    .update-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .update-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--tip);
+      flex-shrink: 0;
+      transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+
+    .update-dot.has-update {
+      background: #ff6633;
+      box-shadow: 0 0 0 4px color-mix(in srgb, #ff6633 20%, transparent);
+    }
+
+    .update-title {
+      font-size: 13px;
+      line-height: 18px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .update-status {
+      margin: 0;
+      font-size: 13px;
+      font-family: "SarasaUISC", monospace;
+      line-height: 16px;
+      word-break: break-word;
+      color: #ff6633;
+    }
+
+    .update-button {
+      margin: 0;
+      min-width: 58px;
+      padding: 6px 10px;
+      flex-shrink: 0;
+      font-family: "SarasaMonoSC", monospace;
+    }
+
+    .update-link {
+      display: block;
+      margin: 0;
+      color: var(--text);
+      text-decoration: none;
+      font-family: "SarasaUISC", monospace;
+      font-size: 12px;
+      line-height: 1.35;
+      word-break: break-word;
+    }
+
+    .update-link:hover {
+      text-decoration: underline;
     }
 
     .row {
@@ -723,22 +840,14 @@
       height: 12px;
     }
 
-    .blur-effect {
-      z-index: 998 !important;
-      height: 58px;
-      width: 100vw;
-      position: fixed !important;
-      z-index: 10;
-      pointer-events: none;
-    }
-
     @supports (corner-shape: superellipse(1.5)) {
 
       .platform-group,
       .font-settings,
       .color-settings,
       .custom-code-settings,
-      .launchpad-extra-settings {
+      .launchpad-extra-settings,
+      .update-panel {
         border-radius: 16px;
         corner-shape: superellipse(1.5);
       }
@@ -780,7 +889,38 @@
         style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:3;backdrop-filter:blur(9.600000000000001px);-webkit-backdrop-filter:blur(9.600000000000001px);mask-image:linear-gradient(to top, transparent 75%, black 100%);-webkit-mask-image:linear-gradient(to top, transparent 75%, black 100%)">
       </div>
     </div>
+
+    <div style="position:absolute;z-index:10;pointer-events:auto;top:0;left:0;right:0;bottom:auto"
+      class="blur-effect update">
+      <div
+        style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:1;backdrop-filter:blur(1.6px);-webkit-backdrop-filter:blur(1.6px);mask-image:linear-gradient(to top, transparent 0%, black 25%);-webkit-mask-image:linear-gradient(to top, transparent 0%, black 25%)">
+      </div>
+      <div
+        style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:2;backdrop-filter:blur(4.800000000000001px);-webkit-backdrop-filter:blur(4.800000000000001px);mask-image:linear-gradient(to top, transparent 25%, black 75%);-webkit-mask-image:linear-gradient(to top, transparent 25%, black 75%)">
+      </div>
+      <div
+        style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:3;backdrop-filter:blur(9.600000000000001px);-webkit-backdrop-filter:blur(9.600000000000001px);mask-image:linear-gradient(to top, transparent 75%, black 100%);-webkit-mask-image:linear-gradient(to top, transparent 75%, black 100%)">
+      </div>
+    </div>
     <code class="version">版本 1.0.1</code>
+    <div id="updatePanel" class="update-panel">
+      <div class="update-head">
+        <div class="update-title-wrap">
+          <span id="updateDot" class="update-dot" aria-hidden="true"></span>
+          <p class="update-title">检查更新</p>
+        </div>
+        <button id="checkUpdateButton" class="mini-button update-button" type="button">检查</button>
+      </div>
+      <p id="updateStatus" class="update-status"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"
+          xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M30 17.0001V25.0001C30 25.5305 29.7893 26.0392 29.4142 26.4143C29.0391 26.7893 28.5304 27.0001 28 27.0001H4C3.46957 27.0001 2.96086 26.7893 2.58579 26.4143C2.21071 26.0392 2 25.5305 2 25.0001V17.0001C2 16.4696 2.21071 15.9609 2.58579 15.5858C2.96086 15.2108 3.46957 15.0001 4 15.0001H10C10.2652 15.0001 10.5196 15.1054 10.7071 15.2929C10.8946 15.4805 11 15.7348 11 16.0001C11 16.2653 10.8946 16.5196 10.7071 16.7072C10.5196 16.8947 10.2652 17.0001 10 17.0001H4V25.0001H28V17.0001H22C21.7348 17.0001 21.4804 16.8947 21.2929 16.7072C21.1054 16.5196 21 16.2653 21 16.0001C21 15.7348 21.1054 15.4805 21.2929 15.2929C21.4804 15.1054 21.7348 15.0001 22 15.0001H28C28.5304 15.0001 29.0391 15.2108 29.4142 15.5858C29.7893 15.9609 30 16.4696 30 17.0001ZM10.7075 9.70755L15 5.4138V16.0001C15 16.2653 15.1054 16.5196 15.2929 16.7072C15.4804 16.8947 15.7348 17.0001 16 17.0001C16.2652 17.0001 16.5196 16.8947 16.7071 16.7072C16.8946 16.5196 17 16.2653 17 16.0001V5.4138L21.2925 9.70755C21.4801 9.8952 21.7346 10.0006 22 10.0006C22.2654 10.0006 22.5199 9.8952 22.7075 9.70755C22.8951 9.51991 23.0006 9.26542 23.0006 9.00005C23.0006 8.73469 22.8951 8.48019 22.7075 8.29255L16.7075 2.29255C16.6146 2.19958 16.5043 2.12582 16.3829 2.07549C16.2615 2.02517 16.1314 1.99927 16 1.99927C15.8686 1.99927 15.7385 2.02517 15.6171 2.07549C15.4957 2.12582 15.3854 2.19958 15.2925 2.29255L9.2925 8.29255C9.10486 8.48019 8.99944 8.73469 8.99944 9.00005C8.99944 9.26542 9.10486 9.51991 9.2925 9.70755C9.48014 9.89519 9.73464 10.0006 10 10.0006C10.2654 10.0006 10.5199 9.8952 10.7075 9.70755ZM25 21.0001C25 20.7034 24.912 20.4134 24.7472 20.1667C24.5824 19.92 24.3481 19.7278 24.074 19.6142C23.7999 19.5007 23.4983 19.471 23.2074 19.5289C22.9164 19.5868 22.6491 19.7296 22.4393 19.9394C22.2296 20.1492 22.0867 20.4164 22.0288 20.7074C21.9709 20.9984 22.0007 21.3 22.1142 21.5741C22.2277 21.8482 22.42 22.0824 22.6666 22.2473C22.9133 22.4121 23.2033 22.5001 23.5 22.5001C23.8978 22.5001 24.2794 22.342 24.5607 22.0607C24.842 21.7794 25 21.3979 25 21.0001Z"
+            fill="currentColor" />
+        </svg>
+        等待检查</p>
+      <a id="latestCommitLink" class="update-link" href="https://github.com/aurysian-yan/FnOS_UI_Mods/commits"
+        target="_blank" rel="noopener noreferrer">最新提交：读取中...</a>
+    </div>
 
     <div class="title">当前站点</div>
     <code><div id="origin" class="origin">读取中...</div></code>

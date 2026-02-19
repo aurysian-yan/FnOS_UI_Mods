@@ -1,6 +1,11 @@
 (async () => {
   const versionEl = document.querySelector("code.version");
   const originEl = document.getElementById("origin");
+  const updatePanelEl = document.getElementById("updatePanel");
+  const updateDotEl = document.getElementById("updateDot");
+  const updateStatusEl = document.getElementById("updateStatus");
+  const checkUpdateButtonEl = document.getElementById("checkUpdateButton");
+  const latestCommitLinkEl = document.getElementById("latestCommitLink");
   const siteToggleEl = document.getElementById("siteToggle");
   const autoSuspectedFnOSEl = document.getElementById("autoSuspectedFnOS");
   const styleWindowsEl = document.getElementById("styleWindows");
@@ -46,9 +51,16 @@
   const FONT_LOCAL_DATA_KEY = "customFontDataUrl";
   const FONT_LOCAL_NAME_KEY = "customFontFileName";
   const FONT_LOCAL_FORMAT_KEY = "customFontFormat";
+  const UPDATE_STATE_LOCAL_KEY = "updateCheckState";
   const CUSTOM_CSS_LOCAL_KEY = "customCssCode";
   const CUSTOM_JS_LOCAL_KEY = "customJsCode";
   const CUSTOM_CODE_STATUS_DEFAULT = "失焦后自动保存并应用到当前页面";
+  const UPDATE_CHECK_INTERVAL_MS = 30 * 60 * 1000;
+  const GITHUB_COMMITS_PAGE_URL =
+    "https://github.com/aurysian-yan/FnOS_UI_Mods/commits";
+  const GITHUB_COMMITS_API_URL =
+    "https://api.github.com/repos/aurysian-yan/FnOS_UI_Mods/commits?per_page=1";
+  const ACTION_BADGE_TEXT = "UP";
 
   const DEFAULT_FONT_SETTINGS = {
     enabled: false,
@@ -74,6 +86,19 @@
   let uploadedFontDataUrl = "";
   let uploadedFontFileName = "";
   let uploadedFontFormat = "";
+  let updateCheckState = {
+    baseVersion: manifestVersion,
+    baseSha: "",
+    lastCheckedAt: 0,
+    latestSha: "",
+    latestDate: "",
+    latestUrl: GITHUB_COMMITS_PAGE_URL,
+    latestMessage: "",
+    hasUpdate: false,
+    lastResult: "",
+    lastError: ""
+  };
+  let updateCheckInFlight = null;
 
   function isStorageQuotaErrorMessage(message) {
     if (typeof message !== "string") return false;
@@ -444,6 +469,181 @@
     return value.trim().slice(0, maxLength);
   }
 
+  function truncateText(value, maxLength = 60) {
+    const normalized = normalizeText(value, maxLength);
+    return normalized;
+  }
+
+  function normalizeUpdateState(raw) {
+    const next = raw && typeof raw === "object" ? raw : {};
+    const parsedLastCheckedAt = Number(next.lastCheckedAt);
+    const allowedResult = new Set(["first", "same", "new", "error"]);
+    const lastResult = allowedResult.has(next.lastResult) ? next.lastResult : "";
+    return {
+      baseVersion: normalizeText(next.baseVersion, 40) || manifestVersion,
+      baseSha: normalizeText(next.baseSha, 128),
+      lastCheckedAt:
+        Number.isFinite(parsedLastCheckedAt) && parsedLastCheckedAt > 0
+          ? parsedLastCheckedAt
+          : 0,
+      latestSha: normalizeText(next.latestSha, 128),
+      latestDate: normalizeText(next.latestDate, 80),
+      latestUrl:
+        normalizeText(next.latestUrl, 1000) || GITHUB_COMMITS_PAGE_URL,
+      latestMessage: normalizeText(next.latestMessage, 200),
+      hasUpdate: Boolean(next.hasUpdate || next.lastResult === "new"),
+      lastResult,
+      lastError: normalizeText(next.lastError, 200)
+    };
+  }
+
+  function shortSha(sha) {
+    const normalized = normalizeText(sha, 128);
+    return normalized ? normalized.slice(0, 7) : "";
+  }
+
+  function formatCommitDate(dateText) {
+    if (!dateText) return "";
+    const parsed = new Date(dateText);
+    if (!Number.isFinite(parsed.getTime())) return "";
+    return new Intl.DateTimeFormat("zh-CN", {
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    }).format(parsed);
+  }
+
+  function formatElapsedText(timestamp) {
+    if (!timestamp || !Number.isFinite(timestamp)) return "";
+    const diff = Date.now() - timestamp;
+    if (diff < 0) return "";
+    if (diff < 60 * 1000) return "刚刚";
+    if (diff < 60 * 60 * 1000) return `${Math.floor(diff / (60 * 1000))} 分钟前`;
+    if (diff < 24 * 60 * 60 * 1000) {
+      return `${Math.floor(diff / (60 * 60 * 1000))} 小时前`;
+    }
+    return `${Math.floor(diff / (24 * 60 * 60 * 1000))} 天前`;
+  }
+
+  function updateCheckStatusText() {
+    const elapsedText = formatElapsedText(updateCheckState.lastCheckedAt);
+    if (updateCheckState.hasUpdate || updateCheckState.lastResult === "new") {
+      return elapsedText ? `发现可用更新 (上次检查：${elapsedText})` : "发现可用更新";
+    }
+    if (updateCheckState.lastResult === "same") {
+      return elapsedText ? `暂无更新 (上次检查：${elapsedText})` : "暂无更新";
+    }
+    if (updateCheckState.lastResult === "first") {
+      return elapsedText ? `已记录当前最新提交 (上次检查：${elapsedText})` : "已记录当前最新提交";
+    }
+    if (updateCheckState.lastResult === "error") {
+      return updateCheckState.lastError || "检查失败";
+    }
+    return "等待检查";
+  }
+
+  function renderUpdateLink() {
+    if (!latestCommitLinkEl) return;
+    const href =
+      normalizeText(updateCheckState.latestUrl, 1000) || GITHUB_COMMITS_PAGE_URL;
+    latestCommitLinkEl.href = href;
+
+    const shaText = shortSha(updateCheckState.latestSha);
+    if (!shaText) {
+      latestCommitLinkEl.textContent = "最新提交：读取中...";
+      return;
+    }
+
+    const dateText = formatCommitDate(updateCheckState.latestDate);
+    const messageText = truncateText(updateCheckState.latestMessage, 48);
+    let content = `最新提交：${shaText}`;
+    if (dateText) {
+      content += ` · ${dateText}`;
+    }
+    latestCommitLinkEl.textContent = content;
+  }
+
+  function setUpdateStatusText(text) {
+    if (!updateStatusEl) return;
+    updateStatusEl.textContent = text;
+  }
+
+  function setUpdateButtonState(isLoading) {
+    if (!checkUpdateButtonEl) return;
+    checkUpdateButtonEl.disabled = Boolean(isLoading);
+    checkUpdateButtonEl.textContent = isLoading ? "检查中" : "检查";
+  }
+
+  async function syncActionBadge() {
+    if (!chrome?.action?.setBadgeText) return;
+    const hasUpdate = Boolean(updateCheckState.hasUpdate);
+    try {
+      await chrome.action.setBadgeText({
+        text: hasUpdate ? ACTION_BADGE_TEXT : ""
+      });
+      if (hasUpdate && chrome.action.setBadgeBackgroundColor) {
+        await chrome.action.setBadgeBackgroundColor({
+          color: "#ff6633"
+        });
+      }
+    } catch (_error) {
+      // ignore action badge errors in unsupported contexts
+    }
+  }
+
+  function renderUpdateCheckUI() {
+    setUpdateStatusText(updateCheckStatusText());
+    renderUpdateLink();
+    const hasUpdate = Boolean(updateCheckState.hasUpdate);
+    updatePanelEl?.classList.toggle("has-update", hasUpdate);
+    updateDotEl?.classList.toggle("has-update", hasUpdate);
+    void syncActionBadge();
+  }
+
+  function parseUpdateErrorMessage(error) {
+    const rawMessage = String(error?.message || "").toLowerCase();
+    if (rawMessage.includes("http-403") || rawMessage.includes("http-429")) {
+      return "检查失败：GitHub API 频率限制";
+    }
+    if (rawMessage.includes("http-404")) {
+      return "检查失败：仓库不存在或无权限";
+    }
+    if (rawMessage.includes("aborted")) {
+      return "检查失败：请求已取消";
+    }
+    return "检查失败：网络或接口异常";
+  }
+
+  async function fetchLatestCommit() {
+    const response = await fetch(GITHUB_COMMITS_API_URL, {
+      headers: {
+        Accept: "application/vnd.github+json"
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`http-${response.status}`);
+    }
+    const data = await response.json();
+    const latest = Array.isArray(data) ? data[0] : null;
+    if (!latest || typeof latest !== "object" || typeof latest.sha !== "string") {
+      throw new Error("invalid-response");
+    }
+    const firstLine = String(latest?.commit?.message || "").split("\n")[0];
+    const message = normalizeText(firstLine, 200);
+    const date =
+      normalizeText(latest?.commit?.committer?.date, 80) ||
+      normalizeText(latest?.commit?.author?.date, 80);
+    const url = normalizeText(latest?.html_url, 1000) || GITHUB_COMMITS_PAGE_URL;
+    return {
+      sha: latest.sha,
+      date,
+      url,
+      message
+    };
+  }
+
   function normalizeFontFamily(value) {
     return normalizeText(value, 400);
   }
@@ -658,6 +858,104 @@
     }
   }
 
+  async function saveUpdateState() {
+    const result = await safeLocalSet({
+      [UPDATE_STATE_LOCAL_KEY]: updateCheckState
+    });
+    return result.ok;
+  }
+
+  async function runUpdateCheck({ force = false } = {}) {
+    if (updateCheckInFlight) {
+      return updateCheckInFlight;
+    }
+
+    if (updateCheckState.baseVersion !== manifestVersion) {
+      updateCheckState = {
+        ...updateCheckState,
+        baseVersion: manifestVersion,
+        baseSha: "",
+        hasUpdate: false
+      };
+    }
+
+    const isFresh =
+      !force &&
+      updateCheckState.lastCheckedAt > 0 &&
+      Date.now() - updateCheckState.lastCheckedAt < UPDATE_CHECK_INTERVAL_MS &&
+      updateCheckState.lastResult !== "error";
+    if (isFresh) {
+      renderUpdateCheckUI();
+      return updateCheckState;
+    }
+
+    setUpdateButtonState(true);
+    setUpdateStatusText("检查中...");
+
+    updateCheckInFlight = (async () => {
+      try {
+        const latest = await fetchLatestCommit();
+        const baseSha = normalizeText(updateCheckState.baseSha, 128);
+        const hasBase = Boolean(baseSha);
+        const hasUpdate = hasBase && latest.sha !== baseSha;
+        const nextBaseSha = hasBase ? baseSha : latest.sha;
+
+        updateCheckState = {
+          ...updateCheckState,
+          baseVersion: manifestVersion,
+          baseSha: nextBaseSha,
+          lastCheckedAt: Date.now(),
+          latestSha: latest.sha,
+          latestDate: latest.date,
+          latestUrl: latest.url,
+          latestMessage: latest.message,
+          hasUpdate,
+          lastResult: hasUpdate ? "new" : hasBase ? "same" : "first",
+          lastError: ""
+        };
+      } catch (error) {
+        updateCheckState = {
+          ...updateCheckState,
+          lastCheckedAt: Date.now(),
+          lastResult: "error",
+          lastError: parseUpdateErrorMessage(error)
+        };
+      }
+
+      await saveUpdateState();
+      renderUpdateCheckUI();
+      return updateCheckState;
+    })()
+      .finally(() => {
+        updateCheckInFlight = null;
+        setUpdateButtonState(false);
+      });
+
+    return updateCheckInFlight;
+  }
+
+  async function initializeUpdateChecker() {
+    if (!updateStatusEl && !latestCommitLinkEl && !checkUpdateButtonEl) {
+      return;
+    }
+
+    const localUpdateState = await chrome.storage.local.get({
+      [UPDATE_STATE_LOCAL_KEY]: null
+    });
+    updateCheckState = normalizeUpdateState(
+      localUpdateState[UPDATE_STATE_LOCAL_KEY]
+    );
+    renderUpdateCheckUI();
+
+    if (checkUpdateButtonEl) {
+      checkUpdateButtonEl.addEventListener("click", async () => {
+        await runUpdateCheck({ force: true });
+      });
+    }
+
+    await runUpdateCheck();
+  }
+
   async function saveBrandColor(next) {
     if (next === lastSavedBrandColor) return true;
     const ok = await safeSyncSet({ brandColor: next });
@@ -770,7 +1068,9 @@
     });
   }
 
-  if (!origin || !/^https?:$/.test(pageUrl.protocol)) {
+  await initializeUpdateChecker();
+
+  if (!pageUrl || !origin || !/^https?:$/.test(pageUrl.protocol)) {
     originEl.textContent = "当前页不是 http/https 页面";
     siteToggleEl.disabled = true;
     autoSuspectedFnOSEl.disabled = true;
