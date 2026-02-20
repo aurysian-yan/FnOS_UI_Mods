@@ -11,6 +11,8 @@
   const CUSTOM_CSS_STYLE_ID = 'fnos-ui-mods-custom-css-style';
   const CUSTOM_JS_SCRIPT_ID = 'fnos-ui-mods-custom-js-script';
   const LAUNCHPAD_ICON_SCALE_STYLE_ID = 'fnos-ui-mods-launchpad-icon-scale-style';
+  const LAUNCHPAD_ICON_ORIGINAL_SRC_ATTR = 'data-fnos-original-src';
+  const LAUNCHPAD_ICON_ORIGINAL_DATA_SRC_ATTR = 'data-fnos-original-data-src';
 
   const THEME_DEFAULT_BRAND = '#0066ff';
   const BRAND_LIGHTNESS_MIN = 0.3;
@@ -75,6 +77,8 @@
   let currentLaunchpadIconScaleEnabled = false;
   let currentLaunchpadIconScaleSelectedKeys = [];
   let currentLaunchpadIconMaskOnlyKeys = [];
+  let currentLaunchpadIconRedrawKeys = [];
+  let currentLaunchpadIconRedrawMap = {};
   let currentUploadedFontDataUrl = '';
   let currentUploadedFontFileName = '';
   let currentUploadedFontFormat = '';
@@ -158,6 +162,20 @@
     return Array.from(unique);
   }
 
+  function normalizeLaunchpadRedrawMap(value, maxLength = 320) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    const map = {};
+    Object.entries(value).forEach(([rawKey, rawPath]) => {
+      if (typeof rawKey !== 'string' || typeof rawPath !== 'string') return;
+      const key = rawKey.trim().slice(0, maxLength);
+      const path = rawPath.trim();
+      if (!key) return;
+      if (!/^prefect_icon\/[a-z0-9-]+\.png$/i.test(path)) return;
+      map[key] = path;
+    });
+    return map;
+  }
+
   function normalizeLaunchpadIconKey(rawValue) {
     if (typeof rawValue !== 'string') return '';
     const raw = rawValue.trim();
@@ -235,11 +253,17 @@
 
   function extractLaunchpadAppKey(cardEl) {
     if (!(cardEl instanceof HTMLElement)) return '';
-    const imageEl = cardEl.querySelector('.semi-image img');
+    const imageEl = getLaunchpadIconImageElement(cardEl);
     if (!(imageEl instanceof HTMLImageElement)) return '';
 
-    const rawDataSrc = imageEl.getAttribute('data-src') || '';
-    const rawSrc = imageEl.getAttribute('src') || '';
+    const rawDataSrc =
+      imageEl.getAttribute(LAUNCHPAD_ICON_ORIGINAL_DATA_SRC_ATTR) ||
+      imageEl.getAttribute('data-src') ||
+      '';
+    const rawSrc =
+      imageEl.getAttribute(LAUNCHPAD_ICON_ORIGINAL_SRC_ATTR) ||
+      imageEl.getAttribute('src') ||
+      '';
     const keyFromDataSrc = normalizeLaunchpadIconKey(rawDataSrc);
     const keyFromSrc = normalizeLaunchpadIconKey(rawSrc);
     const key = keyFromDataSrc || keyFromSrc;
@@ -247,9 +271,16 @@
     return key;
   }
 
+  function getLaunchpadIconImageElement(cardEl) {
+    if (!(cardEl instanceof HTMLElement)) return null;
+    const imageEl = cardEl.querySelector('.semi-image img');
+    if (!(imageEl instanceof HTMLImageElement)) return null;
+    return imageEl;
+  }
+
   function getLaunchpadIconImageSource(cardEl) {
     if (!(cardEl instanceof HTMLElement)) return '';
-    const imageEl = cardEl.querySelector('.semi-image img');
+    const imageEl = getLaunchpadIconImageElement(cardEl);
     if (!(imageEl instanceof HTMLImageElement)) return '';
     const currentSrc = imageEl.currentSrc || '';
     if (typeof currentSrc === 'string' && currentSrc.trim()) return currentSrc.trim();
@@ -257,6 +288,72 @@
     const rawSrc = (imageEl.getAttribute('src') || '').trim();
     if (rawSrc) return rawSrc;
     return (imageEl.getAttribute('data-src') || '').trim();
+  }
+
+  function restoreLaunchpadRedrawIconFromImage(imageEl) {
+    if (!(imageEl instanceof HTMLImageElement)) return;
+    if (!imageEl.hasAttribute(LAUNCHPAD_ICON_ORIGINAL_SRC_ATTR)) return;
+    const originalSrc = imageEl.getAttribute(LAUNCHPAD_ICON_ORIGINAL_SRC_ATTR) || '';
+    const originalDataSrc =
+      imageEl.getAttribute(LAUNCHPAD_ICON_ORIGINAL_DATA_SRC_ATTR) || '';
+
+    if (originalSrc) {
+      imageEl.setAttribute('src', originalSrc);
+    } else {
+      imageEl.removeAttribute('src');
+    }
+
+    if (originalDataSrc) {
+      imageEl.setAttribute('data-src', originalDataSrc);
+    } else {
+      imageEl.removeAttribute('data-src');
+    }
+
+    imageEl.removeAttribute(LAUNCHPAD_ICON_ORIGINAL_SRC_ATTR);
+    imageEl.removeAttribute(LAUNCHPAD_ICON_ORIGINAL_DATA_SRC_ATTR);
+  }
+
+  function restoreLaunchpadRedrawIcon(cardEl) {
+    const imageEl = getLaunchpadIconImageElement(cardEl);
+    if (!(imageEl instanceof HTMLImageElement)) return;
+    restoreLaunchpadRedrawIconFromImage(imageEl);
+  }
+
+  function resolveLaunchpadRedrawPath(cardEl) {
+    const key = extractLaunchpadAppKey(cardEl);
+    if (!key) return '';
+    const path = currentLaunchpadIconRedrawMap[key];
+    if (typeof path !== 'string' || !path.trim()) return '';
+    if (!/^prefect_icon\/[a-z0-9-]+\.png$/i.test(path)) return '';
+    return path.trim();
+  }
+
+  function applyLaunchpadRedrawIcon(cardEl) {
+    const imageEl = getLaunchpadIconImageElement(cardEl);
+    if (!(imageEl instanceof HTMLImageElement)) return;
+    const redrawPath = resolveLaunchpadRedrawPath(cardEl);
+    if (!redrawPath) {
+      restoreLaunchpadRedrawIconFromImage(imageEl);
+      return;
+    }
+
+    if (!imageEl.hasAttribute(LAUNCHPAD_ICON_ORIGINAL_SRC_ATTR)) {
+      imageEl.setAttribute(
+        LAUNCHPAD_ICON_ORIGINAL_SRC_ATTR,
+        imageEl.getAttribute('src') || ''
+      );
+    }
+    if (!imageEl.hasAttribute(LAUNCHPAD_ICON_ORIGINAL_DATA_SRC_ATTR)) {
+      imageEl.setAttribute(
+        LAUNCHPAD_ICON_ORIGINAL_DATA_SRC_ATTR,
+        imageEl.getAttribute('data-src') || ''
+      );
+    }
+
+    const redrawUrl = chrome.runtime.getURL(redrawPath);
+    if (imageEl.getAttribute('src') !== redrawUrl) {
+      imageEl.setAttribute('src', redrawUrl);
+    }
   }
 
   function normalizeLaunchpadPreviewSource(rawSource) {
@@ -334,9 +431,17 @@
     return maskOnlySet.has(key);
   }
 
+  function shouldRedrawLaunchpadCard(cardEl, redrawSet) {
+    if (!(redrawSet instanceof Set) || redrawSet.size === 0) return false;
+    const key = extractLaunchpadAppKey(cardEl);
+    if (!key) return false;
+    return redrawSet.has(key);
+  }
+
   function setLaunchpadIconScaleOnDom(enabled) {
     const selectedSet = new Set(currentLaunchpadIconScaleSelectedKeys);
     const maskOnlySet = new Set(currentLaunchpadIconMaskOnlyKeys);
+    const redrawSet = new Set(currentLaunchpadIconRedrawKeys);
     const cards = collectLaunchpadIconCards();
     const matchedBoxes = new Set();
 
@@ -347,6 +452,8 @@
       const shouldScale = enabled && shouldScaleLaunchpadCard(cardEl, selectedSet);
       const shouldMaskOnly =
         enabled && shouldMaskOnlyLaunchpadCard(cardEl, maskOnlySet);
+      const shouldRedraw =
+        enabled && shouldRedrawLaunchpadCard(cardEl, redrawSet);
       const shouldProcess = shouldScale || shouldMaskOnly;
       boxEl.classList.toggle(LAUNCHPAD_ICON_BASE_CLASS, shouldProcess);
       boxEl.classList.toggle(LAUNCHPAD_ICON_BOX_CLASS, shouldScale);
@@ -355,6 +462,11 @@
         ensureLaunchpadBlurClone(boxEl, cardEl);
       } else {
         removeLaunchpadBlurClone(boxEl);
+      }
+      if (shouldRedraw) {
+        applyLaunchpadRedrawIcon(cardEl);
+      } else {
+        restoreLaunchpadRedrawIcon(cardEl);
       }
     });
     document
@@ -368,6 +480,24 @@
         boxEl.classList.remove(LAUNCHPAD_ICON_BOX_CLASS);
         boxEl.classList.remove(LAUNCHPAD_ICON_MASK_ONLY_CLASS);
         removeLaunchpadBlurClone(boxEl);
+      });
+
+    document
+      .querySelectorAll(
+        `img[${LAUNCHPAD_ICON_ORIGINAL_SRC_ATTR}], img[${LAUNCHPAD_ICON_ORIGINAL_DATA_SRC_ATTR}]`
+      )
+      .forEach((imageEl) => {
+        if (!(imageEl instanceof HTMLImageElement)) return;
+        const cardEl = imageEl.closest('div.cursor-pointer');
+        if (!(cardEl instanceof HTMLElement)) {
+          restoreLaunchpadRedrawIconFromImage(imageEl);
+          return;
+        }
+        const shouldKeep =
+          enabled && shouldRedrawLaunchpadCard(cardEl, redrawSet);
+        if (!shouldKeep) {
+          restoreLaunchpadRedrawIconFromImage(imageEl);
+        }
       });
   }
 
@@ -433,12 +563,27 @@
   function updateLaunchpadIconScaleEnabled(
     nextEnabled,
     nextSelectedKeys = [],
-    nextMaskOnlyKeys = []
+    nextMaskOnlyKeys = [],
+    nextRedrawKeys = [],
+    nextRedrawMap = {}
   ) {
     currentLaunchpadIconScaleEnabled = Boolean(nextEnabled);
-    currentLaunchpadIconMaskOnlyKeys = normalizeLaunchpadKeyList(nextMaskOnlyKeys);
-    currentLaunchpadIconScaleSelectedKeys =
-      normalizeLaunchpadKeyList(nextSelectedKeys);
+    const normalizedRedrawMap = normalizeLaunchpadRedrawMap(nextRedrawMap);
+    const normalizedRedrawKeys = normalizeLaunchpadKeyList(nextRedrawKeys).filter(
+      (key) => typeof normalizedRedrawMap[key] === 'string'
+    );
+    const redrawSet = new Set(normalizedRedrawKeys);
+    currentLaunchpadIconRedrawKeys = normalizedRedrawKeys;
+    currentLaunchpadIconRedrawMap = {};
+    currentLaunchpadIconRedrawKeys.forEach((key) => {
+      currentLaunchpadIconRedrawMap[key] = normalizedRedrawMap[key];
+    });
+    currentLaunchpadIconMaskOnlyKeys = normalizeLaunchpadKeyList(
+      nextMaskOnlyKeys
+    ).filter((key) => !redrawSet.has(key));
+    currentLaunchpadIconScaleSelectedKeys = normalizeLaunchpadKeyList(
+      nextSelectedKeys
+    ).filter((key) => !redrawSet.has(key));
     if (currentLaunchpadIconScaleEnabled) {
       startLaunchpadIconObserver();
       scheduleLaunchpadIconRefresh();
@@ -989,6 +1134,8 @@
     launchpadIconScaleEnabled,
     launchpadIconScaleSelectedKeys,
     launchpadIconMaskOnlyKeys,
+    launchpadIconRedrawKeys,
+    launchpadIconRedrawMap,
     triggerReason = 'unknown'
   ) {
     isInjectionActive = true;
@@ -999,7 +1146,9 @@
     updateLaunchpadIconScaleEnabled(
       launchpadIconScaleEnabled,
       launchpadIconScaleSelectedKeys,
-      launchpadIconMaskOnlyKeys
+      launchpadIconMaskOnlyKeys,
+      launchpadIconRedrawKeys,
+      launchpadIconRedrawMap
     );
     injectScript();
     notifyInjectionTriggered(triggerReason);
@@ -1086,6 +1235,8 @@
             currentLaunchpadIconScaleSelectedKeys,
           message.launchpadIconMaskOnlyKeys ??
             currentLaunchpadIconMaskOnlyKeys,
+          message.launchpadIconRedrawKeys ?? currentLaunchpadIconRedrawKeys,
+          message.launchpadIconRedrawMap ?? currentLaunchpadIconRedrawMap,
           'popup_apply'
         );
 
@@ -1139,6 +1290,8 @@
       launchpadIconScaleEnabled: false,
       launchpadIconScaleSelectedKeys: [],
       launchpadIconMaskOnlyKeys: [],
+      launchpadIconRedrawKeys: [],
+      launchpadIconRedrawMap: {},
       brandColor: THEME_DEFAULT_BRAND,
       fontOverrideEnabled: FONT_DEFAULT_SETTINGS.enabled,
       fontFamily: FONT_DEFAULT_SETTINGS.family,
@@ -1156,6 +1309,8 @@
       launchpadIconScaleEnabled,
       launchpadIconScaleSelectedKeys,
       launchpadIconMaskOnlyKeys,
+      launchpadIconRedrawKeys,
+      launchpadIconRedrawMap,
       brandColor,
       fontOverrideEnabled,
       fontFamily,
@@ -1195,18 +1350,31 @@
           launchpadIconScaleEnabled,
           launchpadIconScaleSelectedKeys,
           launchpadIconMaskOnlyKeys,
+          launchpadIconRedrawKeys,
+          launchpadIconRedrawMap,
           isWhitelisted ? 'auto_whitelist' : 'auto_suspected'
         );
       } else {
         currentFontSettings = syncedFontSettings;
         currentCustomCodeSettings = syncedCustomCodeSettings;
         currentLaunchpadIconScaleEnabled = Boolean(launchpadIconScaleEnabled);
+        const normalizedRedrawMap = normalizeLaunchpadRedrawMap(
+          launchpadIconRedrawMap
+        );
+        currentLaunchpadIconRedrawKeys = normalizeLaunchpadKeyList(
+          launchpadIconRedrawKeys
+        ).filter((key) => typeof normalizedRedrawMap[key] === 'string');
+        currentLaunchpadIconRedrawMap = {};
+        currentLaunchpadIconRedrawKeys.forEach((key) => {
+          currentLaunchpadIconRedrawMap[key] = normalizedRedrawMap[key];
+        });
+        const redrawSet = new Set(currentLaunchpadIconRedrawKeys);
         currentLaunchpadIconMaskOnlyKeys = normalizeLaunchpadKeyList(
           launchpadIconMaskOnlyKeys
-        );
+        ).filter((key) => !redrawSet.has(key));
         currentLaunchpadIconScaleSelectedKeys = normalizeLaunchpadKeyList(
           launchpadIconScaleSelectedKeys
-        );
+        ).filter((key) => !redrawSet.has(key));
       }
     }
   );
@@ -1272,7 +1440,9 @@
       if (
         changes.launchpadIconScaleEnabled ||
         changes.launchpadIconScaleSelectedKeys ||
-        changes.launchpadIconMaskOnlyKeys
+        changes.launchpadIconMaskOnlyKeys ||
+        changes.launchpadIconRedrawKeys ||
+        changes.launchpadIconRedrawMap
       ) {
         const nextEnabled = changes.launchpadIconScaleEnabled
           ? Boolean(changes.launchpadIconScaleEnabled.newValue)
@@ -1283,19 +1453,36 @@
         const nextMaskOnlyKeys = changes.launchpadIconMaskOnlyKeys
           ? changes.launchpadIconMaskOnlyKeys.newValue
           : currentLaunchpadIconMaskOnlyKeys;
+        const nextRedrawKeys = changes.launchpadIconRedrawKeys
+          ? changes.launchpadIconRedrawKeys.newValue
+          : currentLaunchpadIconRedrawKeys;
+        const nextRedrawMap = changes.launchpadIconRedrawMap
+          ? changes.launchpadIconRedrawMap.newValue
+          : currentLaunchpadIconRedrawMap;
         if (!isInjectionActive) {
           currentLaunchpadIconScaleEnabled = nextEnabled;
+          const normalizedRedrawMap = normalizeLaunchpadRedrawMap(nextRedrawMap);
+          currentLaunchpadIconRedrawKeys = normalizeLaunchpadKeyList(
+            nextRedrawKeys
+          ).filter((key) => typeof normalizedRedrawMap[key] === 'string');
+          currentLaunchpadIconRedrawMap = {};
+          currentLaunchpadIconRedrawKeys.forEach((key) => {
+            currentLaunchpadIconRedrawMap[key] = normalizedRedrawMap[key];
+          });
+          const redrawSet = new Set(currentLaunchpadIconRedrawKeys);
           currentLaunchpadIconMaskOnlyKeys = normalizeLaunchpadKeyList(
             nextMaskOnlyKeys
-          );
+          ).filter((key) => !redrawSet.has(key));
           currentLaunchpadIconScaleSelectedKeys = normalizeLaunchpadKeyList(
             nextSelectedKeys
-          );
+          ).filter((key) => !redrawSet.has(key));
         } else {
           updateLaunchpadIconScaleEnabled(
             nextEnabled,
             nextSelectedKeys,
-            nextMaskOnlyKeys
+            nextMaskOnlyKeys,
+            nextRedrawKeys,
+            nextRedrawMap
           );
         }
       }

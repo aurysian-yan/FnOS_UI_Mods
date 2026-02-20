@@ -48,7 +48,8 @@
         "mac_titlebar_mod.css",
         "classic_launchpad_mod.css",
         "spotlight_launchpad_mod.css",
-        "mod.js"
+        "mod.js",
+        "prefect_icon/*"
       ],
       "matches": [
         "<all_urls>"

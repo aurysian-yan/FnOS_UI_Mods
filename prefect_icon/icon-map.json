@@ -1,0 +1,19 @@
+{
+  "aliases": {
+    "docker-home-assistantan": "home-assistant",
+    "home-assistantan": "home-assistant"
+  },
+  "appNameMap": {
+    "home-assistant": "home-assistant",
+    "迅雷": "xunlei",
+    "花生壳": "oray-hsk",
+    "1Panel": "one-panel",
+    "emby": "emby"
+  },
+  "serviceIconMap": {
+    "docker-home-assistantan": "home-assistant"
+  },
+  "keyMap": {
+    "/app-center-static/serviceicon/docker-home-assistantan/ui/images/icon_{0}.png": "home-assistant"
+  }
+}
