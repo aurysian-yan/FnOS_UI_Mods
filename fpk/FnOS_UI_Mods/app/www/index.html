@@ -8,79 +8,265 @@
 </head>
 <body>
   <main class="screen">
-    <header class="top-switches">
-      <article class="inject-overview" id="css-overview">
-        <label class="title-row top-toggle" for="css-enable">
-          <input id="css-enable" class="overview-toggle native-control" type="checkbox" checked />
-          <span class="custom-checkbox" aria-hidden="true"></span>
-          <h1>注入 CSS</h1>
-        </label>
-        <p>在&lt;/head&gt;前插入样式补丁</p>
-      </article>
-      <article class="inject-overview" id="js-overview">
-        <label class="title-row top-toggle" for="js-enable">
-          <input id="js-enable" class="overview-toggle native-control" type="checkbox" checked />
-          <span class="custom-checkbox" aria-hidden="true"></span>
-          <h1>注入 JavaScript</h1>
-        </label>
-        <p>在&lt;/body&gt;前插入脚本补丁</p>
-      </article>
+    <header class="mode-tabs" role="tablist" aria-label="注入模式切换">
+      <button
+        id="preset-tab-btn"
+        class="mode-tab is-active"
+        role="tab"
+        type="button"
+        aria-selected="true"
+        aria-controls="preset-tab"
+        data-tab-target="preset"
+      >
+        使用项目预设配置
+      </button>
+      <button
+        id="custom-tab-btn"
+        class="mode-tab"
+        role="tab"
+        type="button"
+        aria-selected="false"
+        aria-controls="custom-tab"
+        data-tab-target="custom"
+      >
+        自定义CSS/JS
+      </button>
     </header>
 
-    <section class="work-area">
-      <article class="inject-module card">
-        <h2>CSS 注入方式</h2>
-        <div class="mode-select">
-          <label class="mode-option hidden-option"><input class="native-control" type="radio" name="css-mode" value="none" /><span class="custom-radio" aria-hidden="true"></span><span>不处理</span></label>
-          <label class="mode-option"><input class="native-control" type="radio" name="css-mode" value="file" checked /><span class="custom-radio" aria-hidden="true"></span><span>选择本地文件</span></label>
-          <label class="mode-option"><input class="native-control" type="radio" name="css-mode" value="path" /><span class="custom-radio" aria-hidden="true"></span><span>选择 NAS 文件</span></label>
-          <label class="mode-option"><input class="native-control" type="radio" name="css-mode" value="text" /><span class="custom-radio" aria-hidden="true"></span><span>填入代码</span></label>
+    <section id="preset-tab" class="tab-panel is-active" role="tabpanel" aria-labelledby="preset-tab-btn" data-tab="preset">
+      <article class="preset-card card">
+        <div class="color-settings">
+          <div class="row theme-row" style="margin: 2px -4px; width: calc(100% + 4px);">
+            <div class="label">
+              <span style="display: flex; gap: 2px; align-items: center;">
+                主题色
+                <button id="resetBrandColor" class="theme-reset" type="button" title="重置主题色">
+                  <svg height="15" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M30.5 6.99998V13C30.5 13.3978 30.3419 13.7793 30.0606 14.0606C29.7793 14.3419 29.3978 14.5 29 14.5H23C22.6021 14.5 22.2206 14.3419 21.9393 14.0606C21.658 13.7793 21.5 13.3978 21.5 13C21.5 12.6022 21.658 12.2206 21.9393 11.9393C22.2206 11.658 22.6021 11.5 23 11.5H25.1375L22.7625 9.32748C22.7462 9.31248 22.73 9.29748 22.715 9.28123C21.6137 8.18068 20.2589 7.36764 18.7697 6.91365C17.2804 6.45967 15.7025 6.37865 14.1746 6.67773C12.6467 6.97681 11.2157 7.64682 10.0075 8.6288C8.79938 9.61079 7.85109 10.8747 7.2461 12.3092C6.64111 13.7437 6.39795 15.305 6.53803 16.8555C6.67811 18.4061 7.19713 19.8985 8.04943 21.2014C8.90172 22.5043 10.0612 23.5777 11.4257 24.3273C12.7903 25.0769 14.3182 25.4796 15.875 25.5H16C18.4249 25.5058 20.759 24.5784 22.5187 22.91C22.808 22.6366 23.194 22.4894 23.5918 22.5007C23.9896 22.5119 24.3666 22.6807 24.64 22.97C24.9133 23.2592 25.0605 23.6452 25.0493 24.043C25.038 24.4408 24.8692 24.8179 24.58 25.0912C22.2636 27.2867 19.1915 28.5073 16 28.5H15.8287C13.7825 28.4711 11.7747 27.9404 9.98156 26.9543C8.18842 25.9682 6.6648 24.557 5.54448 22.8445C4.42417 21.132 3.74142 19.1706 3.55619 17.1326C3.37097 15.0946 3.68893 13.0423 4.48216 11.1559C5.27539 9.26953 6.51962 7.60673 8.10561 6.31352C9.6916 5.02032 11.5708 4.13628 13.5783 3.73902C15.5858 3.34176 17.6601 3.44343 19.619 4.03511C21.578 4.62679 23.3618 5.69037 24.8137 7.13248L27.5 9.58998V6.99998C27.5 6.60216 27.658 6.22062 27.9393 5.93932C28.2206 5.65802 28.6021 5.49998 29 5.49998C29.3978 5.49998 29.7793 5.65802 30.0606 5.93932C30.3419 6.22062 30.5 6.60216 30.5 6.99998Z" fill="currentColor" />
+                  </svg>
+                </button>
+              </span>
+              <div class="sub">明暗限制 30%~70%</div>
+            </div>
+            <div class="theme-right">
+              <label class="theme-controls" for="brandColor">
+                <input id="brandColor" class="color-input" type="color" aria-label="主题色选择" value="#0066ff" />
+              </label>
+            </div>
+          </div>
         </div>
 
-        <div class="mode-panel" data-mode="file">
-          <label class="file-row css-file-row">
-            <input id="css-file" type="file" accept=".css,text/css" />
-            <span class="file-icon css-icon">CSS</span>
-            <span class="file-name" id="css-file-hint">未选择文件</span>
-            <span class="file-close">×</span>
+        <div id="platformGroup" class="platform-group" role="radiogroup" aria-label="标题栏样式">
+          <label class="platform-option">
+            <input id="styleWindows" type="radio" name="titlebarStyle" value="windows" checked />
+            <div>
+              <div class="platform-title">Windows 标题栏样式</div>
+              <div class="platform-desc">窗口标题左对齐，按钮置于右侧</div>
+            </div>
+          </label>
+
+          <label class="platform-option">
+            <input id="styleMac" type="radio" name="titlebarStyle" value="mac" />
+            <div>
+              <div class="platform-title">macOS 标题栏样式</div>
+              <div class="platform-desc">窗口标题居中，按钮红绿灯样式置于左侧</div>
+            </div>
           </label>
         </div>
 
-        <div class="mode-panel" data-mode="path">
-          <input id="css-path" type="text" placeholder="例如：/vol1/1000/Datas/mod.css" />
-        </div>
+        <div id="launchpadGroup" class="platform-group" role="radiogroup" aria-label="启动台样式">
+          <label class="platform-option">
+            <input id="styleClassicLaunchpad" type="radio" name="launchpadStyle" value="classic" checked />
+            <div>
+              <div class="platform-title">经典启动台样式</div>
+              <div class="platform-desc">传统图标布局和交互风格</div>
+            </div>
+          </label>
 
-        <div class="mode-panel" data-mode="text">
-          <textarea id="css-text" rows="8" placeholder="粘贴或输入 CSS 内容"></textarea>
-        </div>
-      </article>
-
-      <article class="inject-module card">
-        <h2>JavaScript 注入方式</h2>
-        <div class="mode-select">
-          <label class="mode-option hidden-option"><input class="native-control" type="radio" name="js-mode" value="none" /><span class="custom-radio" aria-hidden="true"></span><span>不处理</span></label>
-          <label class="mode-option"><input class="native-control" type="radio" name="js-mode" value="file" checked /><span class="custom-radio" aria-hidden="true"></span><span>选择本地文件</span></label>
-          <label class="mode-option"><input class="native-control" type="radio" name="js-mode" value="path" /><span class="custom-radio" aria-hidden="true"></span><span>选择 NAS 文件</span></label>
-          <label class="mode-option"><input class="native-control" type="radio" name="js-mode" value="text" /><span class="custom-radio" aria-hidden="true"></span><span>填入代码</span></label>
-        </div>
-
-        <div class="mode-panel" data-mode="file">
-          <label class="file-row js-file-row">
-            <input id="js-file" type="file" accept=".js,application/javascript,text/javascript" />
-            <span class="file-icon js-icon">JS</span>
-            <span class="file-name" id="js-file-hint">未选择文件</span>
-            <span class="file-close">×</span>
+          <label class="platform-option">
+            <input id="styleSpotlightLaunchpad" type="radio" name="launchpadStyle" value="spotlight" />
+            <div>
+              <div class="platform-title">Spotlight 启动台样式</div>
+              <div class="platform-desc">聚焦搜索与面板视觉风格</div>
+            </div>
           </label>
         </div>
 
-        <div class="mode-panel" data-mode="path">
-          <input id="js-path" type="text" placeholder="例如：/vol1/1000/Datas/mod.js" />
+        <div class="launchpad-extra-settings">
+          <div class="row">
+            <div class="label">
+              完美图标
+              <div class="sub">优化异形图标，使整体图标形状统一</div>
+            </div>
+            <label class="switch">
+              <input id="launchpadIconScaleEnabled" type="checkbox" disabled />
+              <span class="slider">
+                <svg id="mask1" xmlns="http://www.w3.org/2000/svg" fill="none" version="1.1" height="22" viewBox="0 0 72.556640625 80">
+                  <path d="M72.554062,0L0,0L0,80L72.55658,80C41.60265,80,31.700022,79.999878,23.144451,75.642105C9.5070286,69.566315,0,55.893402,0,40C0,24.108103,9.505229,10.436272,23.140579,4.3596172C31.696814,0,41.59753,0,72.554062,0Z" fill-rule="evenodd" fill="var(--card-bg)" fill-opacity="1" />
+                </svg>
+                <svg id="mask2" xmlns="http://www.w3.org/2000/svg" fill="none" version="1.1" height="22" viewBox="0 0 72.55615234375 80">
+                  <path d="M-0.000015258789,80L72.556152,80L72.556152,0L0.002456665,0C30.959045,0,40.859802,0,49.416016,4.3596191L49.419037,4.3611608C63.052521,10.438564,72.556152,24.109436,72.556152,40C72.556152,55.89172,63.051147,69.563431,49.416046,75.640182C40.858917,79.999878,30.957581,80,-0.000015258789,80Z" fill-rule="evenodd" fill="var(--card-bg)" fill-opacity="1" />
+                </svg>
+              </span>
+            </label>
+          </div>
+          <p id="launchpadAppListStatus" class="field-help">应用列表：等待读取</p>
+          <div id="launchpadAppList" class="launchpad-app-list">暂无数据</div>
         </div>
 
-        <div class="mode-panel" data-mode="text">
-          <textarea id="js-text" rows="8" placeholder="粘贴或输入 JS 内容"></textarea>
+        <div class="font-settings">
+          <div class="row" style="margin: 2px -4px; width: calc(100% + 4px);">
+            <div class="label">
+              字体替换
+              <div class="sub">替换 UI 字体并修改字重及 OpenType 属性</div>
+            </div>
+            <label class="switch">
+              <input id="fontOverrideEnabled" type="checkbox" />
+              <span class="slider">
+                <svg id="mask1" xmlns="http://www.w3.org/2000/svg" fill="none" version="1.1" height="22" viewBox="0 0 72.556640625 80">
+                  <path d="M72.554062,0L0,0L0,80L72.55658,80C41.60265,80,31.700022,79.999878,23.144451,75.642105C9.5070286,69.566315,0,55.893402,0,40C0,24.108103,9.505229,10.436272,23.140579,4.3596172C31.696814,0,41.59753,0,72.554062,0Z" fill-rule="evenodd" fill="var(--card-bg)" fill-opacity="1" />
+                </svg>
+                <svg id="mask2" xmlns="http://www.w3.org/2000/svg" fill="none" version="1.1" height="22" viewBox="0 0 72.55615234375 80">
+                  <path d="M-0.000015258789,80L72.556152,80L72.556152,0L0.002456665,0C30.959045,0,40.859802,0,49.416016,4.3596191L49.419037,4.3611608C63.052521,10.438564,72.556152,24.109436,72.556152,40C72.556152,55.89172,63.051147,69.563431,49.416046,75.640182C40.858917,79.999878,30.957581,80,-0.000015258789,80Z" fill-rule="evenodd" fill="var(--card-bg)" fill-opacity="1" />
+                </svg>
+              </span>
+            </label>
+          </div>
+
+          <div id="fontSettings" class="field-stack">
+            <div class="field">
+              <p class="field-label">本地字体名称</p>
+              <input id="fontFamily" class="field-input" type="text" placeholder='例如: "MiSans VF", "Segoe UI", sans-serif' />
+            </div>
+
+            <div class="field">
+              <p class="field-label">网络字体 URL</p>
+              <input id="fontUrl" class="field-input" type="url" placeholder="https://example.com/font.woff2" />
+            </div>
+
+            <div class="field">
+              <p class="field-label">字重</p>
+              <input id="fontWeight" class="field-input" type="text" placeholder="例如: 450 / normal / 600" />
+            </div>
+
+            <div class="field">
+              <p class="field-label">OpenType 属性</p>
+              <input id="fontFeatureSettings" class="field-input" type="text" placeholder='例如: "liga" 1, "kern" 1' />
+            </div>
+          </div>
+        </div>
+
+        <div class="custom-code-settings">
+          <div class="row" style="margin: 2px -4px; width: calc(100% + 4px);">
+            <div class="label">
+              自定义代码注入
+              <div class="sub">向页面注入自定义 CSS / JS（高级功能）</div>
+            </div>
+            <label class="switch">
+              <input id="customCodeEnabled" type="checkbox" />
+              <span class="slider">
+                <svg id="mask1" xmlns="http://www.w3.org/2000/svg" fill="none" version="1.1" height="22" viewBox="0 0 72.556640625 80">
+                  <path d="M72.554062,0L0,0L0,80L72.55658,80C41.60265,80,31.700022,79.999878,23.144451,75.642105C9.5070286,69.566315,0,55.893402,0,40C0,24.108103,9.505229,10.436272,23.140579,4.3596172C31.696814,0,41.59753,0,72.554062,0Z" fill-rule="evenodd" fill="var(--card-bg)" fill-opacity="1" />
+                </svg>
+                <svg id="mask2" xmlns="http://www.w3.org/2000/svg" fill="none" version="1.1" height="22" viewBox="0 0 72.55615234375 80">
+                  <path d="M-0.000015258789,80L72.556152,80L72.556152,0L0.002456665,0C30.959045,0,40.859802,0,49.416016,4.3596191L49.419037,4.3611608C63.052521,10.438564,72.556152,24.109436,72.556152,40C72.556152,55.89172,63.051147,69.563431,49.416046,75.640182C40.858917,79.999878,30.957581,80,-0.000015258789,80Z" fill-rule="evenodd" fill="var(--card-bg)" fill-opacity="1" />
+                </svg>
+              </span>
+            </label>
+          </div>
+
+          <div id="customCodeSettings" class="field-stack">
+            <div class="field">
+              <p class="field-label">自定义 CSS</p>
+              <textarea id="customCss" class="field-input code-input" spellcheck="false" placeholder="例如：.semi-button { border-radius: 999px !important; }"></textarea>
+            </div>
+
+            <div class="field">
+              <p class="field-label">自定义 JavaScript</p>
+              <textarea id="customJs" class="field-input code-input" spellcheck="false" placeholder="例如：console.log('FnOS custom js loaded');"></textarea>
+            </div>
+
+            <p id="customCodeStatus" class="field-help">会写入应用 var 目录，并通过 :8964/preset/mod.css 与 :8964/preset/mod.js 提供</p>
+          </div>
         </div>
       </article>
+    </section>
+
+    <section id="custom-tab" class="tab-panel" role="tabpanel" aria-labelledby="custom-tab-btn" data-tab="custom">
+      <header class="top-switches">
+        <article class="inject-overview" id="css-overview">
+          <label class="title-row top-toggle" for="css-enable">
+            <input id="css-enable" class="overview-toggle native-control" type="checkbox" checked />
+            <span class="custom-checkbox" aria-hidden="true"></span>
+            <h1>注入 CSS</h1>
+          </label>
+          <p>在&lt;/head&gt;前插入样式补丁</p>
+        </article>
+        <article class="inject-overview" id="js-overview">
+          <label class="title-row top-toggle" for="js-enable">
+            <input id="js-enable" class="overview-toggle native-control" type="checkbox" checked />
+            <span class="custom-checkbox" aria-hidden="true"></span>
+            <h1>注入 JavaScript</h1>
+          </label>
+          <p>在&lt;/body&gt;前插入脚本补丁</p>
+        </article>
+      </header>
+
+      <section class="work-area">
+        <article class="inject-module card">
+          <h2>CSS 注入方式</h2>
+          <div class="mode-select">
+            <label class="mode-option hidden-option"><input class="native-control" type="radio" name="css-mode" value="none" /><span class="custom-radio" aria-hidden="true"></span><span>不处理</span></label>
+            <label class="mode-option"><input class="native-control" type="radio" name="css-mode" value="file" checked /><span class="custom-radio" aria-hidden="true"></span><span>选择本地文件</span></label>
+            <label class="mode-option"><input class="native-control" type="radio" name="css-mode" value="path" /><span class="custom-radio" aria-hidden="true"></span><span>选择 NAS 文件</span></label>
+            <label class="mode-option"><input class="native-control" type="radio" name="css-mode" value="text" /><span class="custom-radio" aria-hidden="true"></span><span>填入代码</span></label>
+          </div>
+
+          <div class="mode-panel" data-mode="file">
+            <label class="file-row css-file-row">
+              <input id="css-file" type="file" accept=".css,text/css" />
+              <span class="file-icon css-icon">CSS</span>
+              <span class="file-name" id="css-file-hint">未选择文件</span>
+              <span class="file-close">×</span>
+            </label>
+          </div>
+
+          <div class="mode-panel" data-mode="path">
+            <input id="css-path" type="text" placeholder="例如：/vol1/1000/Datas/mod.css" />
+          </div>
+
+          <div class="mode-panel" data-mode="text">
+            <textarea id="css-text" rows="8" placeholder="粘贴或输入 CSS 内容"></textarea>
+          </div>
+        </article>
+
+        <article class="inject-module card">
+          <h2>JavaScript 注入方式</h2>
+          <div class="mode-select">
+            <label class="mode-option hidden-option"><input class="native-control" type="radio" name="js-mode" value="none" /><span class="custom-radio" aria-hidden="true"></span><span>不处理</span></label>
+            <label class="mode-option"><input class="native-control" type="radio" name="js-mode" value="file" checked /><span class="custom-radio" aria-hidden="true"></span><span>选择本地文件</span></label>
+            <label class="mode-option"><input class="native-control" type="radio" name="js-mode" value="path" /><span class="custom-radio" aria-hidden="true"></span><span>选择 NAS 文件</span></label>
+            <label class="mode-option"><input class="native-control" type="radio" name="js-mode" value="text" /><span class="custom-radio" aria-hidden="true"></span><span>填入代码</span></label>
+          </div>
+
+          <div class="mode-panel" data-mode="file">
+            <label class="file-row js-file-row">
+              <input id="js-file" type="file" accept=".js,application/javascript,text/javascript" />
+              <span class="file-icon js-icon">JS</span>
+              <span class="file-name" id="js-file-hint">未选择文件</span>
+              <span class="file-close">×</span>
+            </label>
+          </div>
+
+          <div class="mode-panel" data-mode="path">
+            <input id="js-path" type="text" placeholder="例如：/vol1/1000/Datas/mod.js" />
+          </div>
+
+          <div class="mode-panel" data-mode="text">
+            <textarea id="js-text" rows="8" placeholder="粘贴或输入 JS 内容"></textarea>
+          </div>
+        </article>
+      </section>
     </section>
 
     <footer class="bottom-bar">

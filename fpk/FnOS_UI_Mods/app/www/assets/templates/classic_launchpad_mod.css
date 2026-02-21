@@ -1,0 +1,33 @@
+/* 启动台 */
+
+.flex.flex-col.justify-start.items-center.pl-\[280px\].pr-\[216px\].py-\[64px\].h-full.box-border {
+    padding-left: calc(54px + .875rem);
+    padding-right: 0;
+
+
+    .semi-input-wrapper,
+    .semi-input-wrapper:hover,
+    .semi-input-wrapper.w-full.\!h-\[44px\].rounded-\[8px\].border.border-solid.box-border.py-\[5px\].px-\[10px\].placeholder\:text-white-50.\!bg-white-10.\!text-base.font-normal.leading-\[22px\].\!text-white.\!border-white-20.semi-input-wrapper__with-prefix.semi-input-wrapper-default,
+    .semi-input-wrapper.w-full.\!h-\[44px\].rounded-\[8px\].border.border-solid.box-border.py-\[5px\].px-\[10px\].placeholder\:text-white-50.\!bg-white-10.\!text-base.font-normal.leading-\[22px\].\!text-white.\!border-white-20.semi-input-wrapper__with-prefix.semi-input-wrapper-default:hover {
+        width: 100%;
+        border-radius: 999px !important;
+        padding: 12px 16px;
+        corner-shape: superellipse(2);
+    }
+
+    .w-\[380px\].pb-base-loose {
+        width: 75% !important;
+        max-width: 348px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .semi-input-wrapper>div>svg,
+    .semi-input-wrapper>div>svg:hover,
+    .semi-input-wrapper.w-full.\!h-\[44px\].rounded-\[8px\].border.border-solid.box-border.py-\[5px\].px-\[10px\].placeholder\:text-white-50.\!bg-white-10.\!text-base.font-normal.leading-\[22px\].\!text-white.\!border-white-20.semi-input-wrapper__with-prefix.semi-input-wrapper-default>div>svg {
+        height: 16px;
+        width: 16px;
+    }
+
+}

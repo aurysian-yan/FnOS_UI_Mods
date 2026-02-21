@@ -23,6 +23,48 @@ const jsOverview = document.getElementById('js-overview');
 const cssOverviewDesc = document.querySelector('#css-overview p');
 const jsOverviewDesc = document.querySelector('#js-overview p');
 const DEFAULT_INJECT_DELAY = 5;
+
+const presetTabBtn = document.getElementById('preset-tab-btn');
+const customTabBtn = document.getElementById('custom-tab-btn');
+const tabPanels = document.querySelectorAll('.tab-panel');
+const modeTabs = document.querySelectorAll('.mode-tab');
+
+const brandColorEl = document.getElementById('brandColor');
+const resetBrandColorEl = document.getElementById('resetBrandColor');
+const styleWindowsEl = document.getElementById('styleWindows');
+const styleMacEl = document.getElementById('styleMac');
+const styleClassicLaunchpadEl = document.getElementById('styleClassicLaunchpad');
+const styleSpotlightLaunchpadEl = document.getElementById('styleSpotlightLaunchpad');
+const fontOverrideEnabledEl = document.getElementById('fontOverrideEnabled');
+const fontSettingsEl = document.getElementById('fontSettings');
+const fontFamilyEl = document.getElementById('fontFamily');
+const fontUrlEl = document.getElementById('fontUrl');
+const fontWeightEl = document.getElementById('fontWeight');
+const fontFeatureSettingsEl = document.getElementById('fontFeatureSettings');
+const customCodeEnabledEl = document.getElementById('customCodeEnabled');
+const customCodeSettingsEl = document.getElementById('customCodeSettings');
+const customCssEl = document.getElementById('customCss');
+const customJsEl = document.getElementById('customJs');
+
+const PRESET_STORAGE_KEY = 'fnos-ui-mods:preset-config';
+const DEFAULT_BRAND_COLOR = '#0066ff';
+const BRAND_LIGHTNESS_MIN = 0.3;
+const BRAND_LIGHTNESS_MAX = 0.7;
+
+const DEFAULT_PRESET_CONFIG = {
+  titlebarStyle: 'windows',
+  launchpadStyle: 'classic',
+  brandColor: DEFAULT_BRAND_COLOR,
+  fontOverrideEnabled: false,
+  fontFamily: '',
+  fontUrl: '',
+  fontWeight: '',
+  fontFeatureSettings: '',
+  customCodeEnabled: false,
+  customCss: '',
+  customJs: '',
+};
+
 const THEME_MODE_MSG = 'fnos-ui-mods:theme-mode';
 const THEME_MODE_REQ_MSG = 'fnos-ui-mods:theme-mode:request';
 const CHILD_ORIGIN = window.location.origin;
@@ -39,6 +81,7 @@ const PARENT_ORIGIN = QUERY_PARENT_ORIGIN || REFERRER_PARENT_ORIGIN || DEFAULT_P
 const prefersDarkMedia = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 let themeModeObserver = null;
 let themeModeSyncedFromParent = false;
+let activeTab = 'preset';
 
 function apiUrl(path) {
   const cleanPath = path.replace(/^\/+/, '');
@@ -301,12 +344,221 @@ async function getPayloadForSection(mode, fileInput, textArea, pathInput, label)
   return { text: '', path: '' };
 }
 
+function hslToRgb(h, s, l) {
+  if (s === 0) {
+    const gray = Math.round(l * 255);
+    return { r: gray, g: gray, b: gray };
+  }
+
+  const hue2rgb = (p, q, t) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+
+  return {
+    r: Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
+    g: Math.round(hue2rgb(p, q, h) * 255),
+    b: Math.round(hue2rgb(p, q, h - 1 / 3) * 255),
+  };
+}
+
+function rgbToHsl(r, g, b) {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const l = (max + min) / 2;
+
+  if (max === min) {
+    return { h: 0, s: 0, l };
+  }
+
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h = 0;
+
+  if (max === rn) {
+    h = (gn - bn) / d + (gn < bn ? 6 : 0);
+  } else if (max === gn) {
+    h = (bn - rn) / d + 2;
+  } else {
+    h = (rn - gn) / d + 4;
+  }
+
+  h /= 6;
+  return { h, s, l };
+}
+
+function normalizeHex(value) {
+  if (typeof value !== 'string') return null;
+  const hex = value.trim().toLowerCase();
+  if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(hex)) return null;
+  if (hex.length === 4) {
+    return `#${hex.slice(1).split('').map((c) => c + c).join('')}`;
+  }
+  return hex;
+}
+
+function rgbToHex({ r, g, b }) {
+  return `#${[r, g, b].map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('')}`;
+}
+
+function clampBrandLightness(hex) {
+  const normalized = normalizeHex(hex);
+  if (!normalized) return DEFAULT_BRAND_COLOR;
+
+  const intValue = Number.parseInt(normalized.slice(1), 16);
+  const rgb = {
+    r: (intValue >> 16) & 255,
+    g: (intValue >> 8) & 255,
+    b: intValue & 255,
+  };
+  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  const clampedL = Math.min(BRAND_LIGHTNESS_MAX, Math.max(BRAND_LIGHTNESS_MIN, hsl.l));
+  return rgbToHex(hslToRgb(hsl.h, hsl.s, clampedL));
+}
+
+function getCurrentPresetConfig() {
+  const titlebarStyle = styleMacEl && styleMacEl.checked ? 'mac' : 'windows';
+  const launchpadStyle = styleSpotlightLaunchpadEl && styleSpotlightLaunchpadEl.checked ? 'spotlight' : 'classic';
+  const brandColor = clampBrandLightness(brandColorEl ? brandColorEl.value : DEFAULT_BRAND_COLOR);
+
+  return {
+    titlebarStyle,
+    launchpadStyle,
+    brandColor,
+    fontOverrideEnabled: Boolean(fontOverrideEnabledEl && fontOverrideEnabledEl.checked),
+    fontFamily: fontFamilyEl ? fontFamilyEl.value.trim() : '',
+    fontUrl: fontUrlEl ? fontUrlEl.value.trim() : '',
+    fontWeight: fontWeightEl ? fontWeightEl.value.trim() : '',
+    fontFeatureSettings: fontFeatureSettingsEl ? fontFeatureSettingsEl.value.trim() : '',
+    customCodeEnabled: Boolean(customCodeEnabledEl && customCodeEnabledEl.checked),
+    customCss: customCssEl ? customCssEl.value : '',
+    customJs: customJsEl ? customJsEl.value : '',
+  };
+}
+
+function getPresetAssetBaseUrl() {
+  const protocol = window.location.protocol || 'http:';
+  const hostname = window.location.hostname || '127.0.0.1';
+  return `${protocol}//${hostname}:8964`;
+}
+
+function updateFontSettingsVisibility() {
+  if (!fontSettingsEl || !fontOverrideEnabledEl) return;
+  fontSettingsEl.style.display = fontOverrideEnabledEl.checked ? 'grid' : 'none';
+}
+
+function updateCustomCodeSettingsVisibility() {
+  if (!customCodeSettingsEl || !customCodeEnabledEl) return;
+  customCodeSettingsEl.style.display = customCodeEnabledEl.checked ? 'grid' : 'none';
+}
+
+function savePresetConfig() {
+  try {
+    const config = getCurrentPresetConfig();
+    localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(config));
+  } catch (_) {
+    // ignore
+  }
+}
+
+function setPresetConfig(nextConfig) {
+  const merged = { ...DEFAULT_PRESET_CONFIG, ...(nextConfig || {}) };
+
+  const brand = clampBrandLightness(typeof merged.brandColor === 'string' ? merged.brandColor : DEFAULT_BRAND_COLOR);
+  if (brandColorEl) brandColorEl.value = brand;
+
+  if (styleWindowsEl) styleWindowsEl.checked = merged.titlebarStyle !== 'mac';
+  if (styleMacEl) styleMacEl.checked = merged.titlebarStyle === 'mac';
+  if (styleClassicLaunchpadEl) styleClassicLaunchpadEl.checked = merged.launchpadStyle !== 'spotlight';
+  if (styleSpotlightLaunchpadEl) styleSpotlightLaunchpadEl.checked = merged.launchpadStyle === 'spotlight';
+
+  if (fontOverrideEnabledEl) fontOverrideEnabledEl.checked = Boolean(merged.fontOverrideEnabled);
+  if (fontFamilyEl) fontFamilyEl.value = typeof merged.fontFamily === 'string' ? merged.fontFamily : '';
+  if (fontUrlEl) fontUrlEl.value = typeof merged.fontUrl === 'string' ? merged.fontUrl : '';
+  if (fontWeightEl) fontWeightEl.value = typeof merged.fontWeight === 'string' ? merged.fontWeight : '';
+  if (fontFeatureSettingsEl) {
+    fontFeatureSettingsEl.value = typeof merged.fontFeatureSettings === 'string' ? merged.fontFeatureSettings : '';
+  }
+
+  if (customCodeEnabledEl) customCodeEnabledEl.checked = Boolean(merged.customCodeEnabled);
+  if (customCssEl) customCssEl.value = typeof merged.customCss === 'string' ? merged.customCss : '';
+  if (customJsEl) customJsEl.value = typeof merged.customJs === 'string' ? merged.customJs : '';
+
+  updateFontSettingsVisibility();
+  updateCustomCodeSettingsVisibility();
+}
+
+function loadPresetConfig() {
+  let saved = null;
+  try {
+    const raw = localStorage.getItem(PRESET_STORAGE_KEY);
+    saved = raw ? JSON.parse(raw) : null;
+  } catch (_) {
+    saved = null;
+  }
+
+  setPresetConfig(saved || DEFAULT_PRESET_CONFIG);
+}
+
+function setActiveTab(tab) {
+  activeTab = tab === 'custom' ? 'custom' : 'preset';
+
+  modeTabs.forEach((tabBtn) => {
+    const selected = tabBtn.dataset.tabTarget === activeTab;
+    tabBtn.classList.toggle('is-active', selected);
+    tabBtn.setAttribute('aria-selected', selected ? 'true' : 'false');
+  });
+
+  tabPanels.forEach((panel) => {
+    const selected = panel.dataset.tab === activeTab;
+    panel.classList.toggle('is-active', selected);
+  });
+}
+
 async function handleInject() {
   setMessage('');
   injectBtn.disabled = true;
   restoreBtn.disabled = true;
 
   try {
+    const delayRaw = injectDelayInput ? injectDelayInput.value.trim() : '';
+    const injectDelaySec = delayRaw ? Number(delayRaw) : DEFAULT_INJECT_DELAY;
+
+    if (!Number.isFinite(injectDelaySec) || injectDelaySec < 0 || injectDelaySec > 120) {
+      throw new Error('注入延时无效 (0-120 秒)');
+    }
+
+    if (activeTab === 'preset') {
+      const presetConfig = getCurrentPresetConfig();
+      const res = await fetch(apiUrl('api/inject'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          injectMode: 'preset',
+          presetConfig,
+          assetBaseUrl: getPresetAssetBaseUrl(),
+          injectDelaySec,
+        }),
+      });
+
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.message || '注入失败');
+      setMessage(data.message || '注入成功', 'ok');
+      savePresetConfig();
+      await loadStatus();
+      return;
+    }
+
     const cssMode = document.querySelector('input[name="css-mode"]:checked').value;
     const jsMode = document.querySelector('input[name="js-mode"]:checked').value;
 
@@ -319,27 +571,11 @@ async function handleInject() {
       getPayloadForSection(jsMode, jsFileInput, jsTextArea, jsPathInput, 'JS'),
     ]);
 
-    const delayRaw = injectDelayInput ? injectDelayInput.value.trim() : '';
-    const injectDelaySec = delayRaw ? Number(delayRaw) : DEFAULT_INJECT_DELAY;
-
-    if (!Number.isFinite(injectDelaySec) || injectDelaySec < 0 || injectDelaySec > 120) {
-      throw new Error('注入延时无效 (0-120 秒)');
-    }
-
-    console.log('[FnOS UI Mods] inject payload', {
-      cssMode,
-      jsMode,
-      cssTextLength: cssPayload.text ? cssPayload.text.length : 0,
-      jsTextLength: jsPayload.text ? jsPayload.text.length : 0,
-      cssPath: cssPayload.path || '',
-      jsPath: jsPayload.path || '',
-      injectDelaySec,
-    });
-
     const res = await fetch(apiUrl('api/inject'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        injectMode: 'custom',
         cssText: cssPayload.text || '',
         jsText: jsPayload.text || '',
         cssPath: cssPayload.path || '',
@@ -349,7 +585,6 @@ async function handleInject() {
     });
 
     const data = await res.json();
-    console.log('[FnOS UI Mods] inject response', data);
     if (!data.ok) throw new Error(data.message || '注入失败');
 
     setMessage(data.message || '注入成功', 'ok');
@@ -393,6 +628,42 @@ cssEnableToggle?.addEventListener('change', () => setSectionEnabled('css', cssEn
 jsEnableToggle?.addEventListener('change', () => setSectionEnabled('js', jsEnableToggle.checked));
 wireOverviewDescToggle('css', cssOverviewDesc);
 wireOverviewDescToggle('js', jsOverviewDesc);
+
+presetTabBtn?.addEventListener('click', () => setActiveTab('preset'));
+customTabBtn?.addEventListener('click', () => setActiveTab('custom'));
+
+fontOverrideEnabledEl?.addEventListener('change', () => {
+  updateFontSettingsVisibility();
+  savePresetConfig();
+});
+customCodeEnabledEl?.addEventListener('change', () => {
+  updateCustomCodeSettingsVisibility();
+  savePresetConfig();
+});
+
+resetBrandColorEl?.addEventListener('click', () => {
+  if (!brandColorEl) return;
+  brandColorEl.value = DEFAULT_BRAND_COLOR;
+  savePresetConfig();
+});
+
+[
+  brandColorEl,
+  styleWindowsEl,
+  styleMacEl,
+  styleClassicLaunchpadEl,
+  styleSpotlightLaunchpadEl,
+  fontFamilyEl,
+  fontUrlEl,
+  fontWeightEl,
+  fontFeatureSettingsEl,
+  customCssEl,
+  customJsEl,
+].forEach((el) => {
+  el?.addEventListener('change', savePresetConfig);
+  el?.addEventListener('blur', savePresetConfig);
+});
+
 window.addEventListener('message', onThemeMessage);
 window.addEventListener('focus', requestThemeModeFromParent);
 document.addEventListener('visibilitychange', () => {
@@ -407,10 +678,13 @@ if (prefersDarkMedia) {
     prefersDarkMedia.addListener(onSystemThemeChanged);
   }
 }
+
 syncThemeModeFromParent();
 observeThemeMode();
 requestThemeModeFromParent();
 
 wireModeGroup('css');
 wireModeGroup('js');
+loadPresetConfig();
+setActiveTab('preset');
 loadStatus();

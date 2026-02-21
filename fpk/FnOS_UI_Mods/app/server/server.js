@@ -17,6 +17,44 @@ const TARGET_DIR = '/usr/trim/www';
 const INDEX_FILE = path.join(TARGET_DIR, 'index.html');
 const BACKUP_DIR = '/usr/cqshbak';
 const BACKUP_FILE = path.join(BACKUP_DIR, 'index.html.original');
+const PRESET_STORE_DIR = process.env.TRIM_PKGVAR
+  ? path.join(process.env.TRIM_PKGVAR, 'preset-assets')
+  : path.join(APP_DEST, 'server', 'preset-assets');
+const PRESET_CSS_TARGET = path.join(PRESET_STORE_DIR, 'mod.css');
+const PRESET_JS_TARGET = path.join(PRESET_STORE_DIR, 'mod.js');
+
+const PRESET_TEMPLATE_DIR = path.join(WWW_ROOT, 'assets', 'templates');
+const PRESET_FILES = {
+  js: path.join(PRESET_TEMPLATE_DIR, 'mod.js'),
+  basicCss: path.join(PRESET_TEMPLATE_DIR, 'basic_mod.css'),
+  windowsTitlebarCss: path.join(PRESET_TEMPLATE_DIR, 'windows_titlebar_mod.css'),
+  macTitlebarCss: path.join(PRESET_TEMPLATE_DIR, 'mac_titlebar_mod.css'),
+  classicLaunchpadCss: path.join(PRESET_TEMPLATE_DIR, 'classic_launchpad_mod.css'),
+  spotlightLaunchpadCss: path.join(PRESET_TEMPLATE_DIR, 'spotlight_launchpad_mod.css'),
+};
+
+const INLINE_CSS_MARKER = '/* Injected CSS */';
+const INLINE_JS_MARKER = '// Injected JS';
+const TAG_CSS_MARKER = '<!-- Injected CSS -->';
+const TAG_JS_MARKER = '<!-- Injected JS -->';
+
+const DEFAULT_BRAND = '#0066ff';
+const BRAND_LIGHTNESS_MIN = 0.3;
+const BRAND_LIGHTNESS_MAX = 0.7;
+const DEFAULT_PRESET_CONFIG = {
+  titlebarStyle: 'windows',
+  launchpadStyle: 'classic',
+  brandColor: DEFAULT_BRAND,
+  fontOverrideEnabled: false,
+  fontFamily: '',
+  fontUrl: '',
+  fontWeight: '',
+  fontFeatureSettings: '',
+  customCodeEnabled: false,
+  customCss: '',
+  customJs: '',
+};
+
 const LOG_FILE = process.env.TRIM_PKGVAR ? path.join(process.env.TRIM_PKGVAR, 'info.log') : null;
 const TEMP_DIR = process.env.TRIM_PKGVAR ? path.join(process.env.TRIM_PKGVAR, 'tmp') : os.tmpdir();
 const SHELL_INJECT_SCRIPT = path.join(APP_DEST, 'server', 'inject_shell.sh');
@@ -28,7 +66,8 @@ const ENABLE_GUARD = process.env.FNOS_INJECT_GUARD === '1';
 const STABILIZE_INTERVAL_MS = 2000;
 const STABILIZE_MAX_MS = 30000;
 const STABLE_REQUIRED = 3;
-let lastPayload = { css: null, js: null };
+
+let lastPayload = { css: null, js: null, cssMode: 'inline', jsMode: 'inline' };
 let stabilizeTimer = null;
 let stabilizeState = null;
 let nsenterChecked = false;
@@ -88,17 +127,62 @@ detectNamespace();
 detectNsenter();
 detectAt();
 log(`Namespace mnt: self=${mntSelf || 'unknown'} init=${mntInit || 'unknown'} nsenter=${nsenterAvailable} at=${atAvailable}`);
+log(`Preset asset target(store): css=${PRESET_CSS_TARGET} js=${PRESET_JS_TARGET}`);
 
 function shellQuote(value) {
   if (!value) return "''";
-  return `'${String(value).replace(/'/g, `'\"'\"'`)}'`;
+  return `'${String(value).replace(/'/g, `'"'"'`)}'`;
+}
+
+function normalizeInjectMode(mode) {
+  return mode === 'tag' ? 'tag' : 'inline';
+}
+
+function normalizeAssetBaseUrl(value) {
+  if (typeof value !== 'string') return '';
+  const raw = value.trim();
+  if (!raw) return '';
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+    return parsed.origin;
+  } catch (_) {
+    return '';
+  }
+}
+
+function buildPresetCssLinkBlock(assetBaseUrl) {
+  const base = normalizeAssetBaseUrl(assetBaseUrl);
+  const href = base ? `${base}/preset/mod.css` : '/preset/mod.css';
+  return `${TAG_CSS_MARKER}<link rel="stylesheet" href="${href}">`;
+}
+
+function buildPresetJsLinkBlock(assetBaseUrl) {
+  const base = normalizeAssetBaseUrl(assetBaseUrl);
+  const src = base ? `${base}/preset/mod.js` : '/preset/mod.js';
+  return `${TAG_JS_MARKER}<script src="${src}"></script>`;
+}
+
+function cssMarkerForMode(mode) {
+  return normalizeInjectMode(mode) === 'tag' ? TAG_CSS_MARKER : INLINE_CSS_MARKER;
+}
+
+function jsMarkerForMode(mode) {
+  return normalizeInjectMode(mode) === 'tag' ? TAG_JS_MARKER : INLINE_JS_MARKER;
+}
+
+function hasCssMarker(html, mode) {
+  return html.includes(cssMarkerForMode(mode));
+}
+
+function hasJsMarker(html, mode) {
+  return html.includes(jsMarkerForMode(mode));
 }
 
 function selectRunner() {
   const runner = INJECT_RUNNER.toLowerCase();
   if (runner === 'direct' || runner === 'nsenter' || runner === 'at') return runner;
   if (runner === 'auto') {
-    if (atAvailable) return 'at';
     if (nsenterAvailable && !DISABLE_NSENTER && (FORCE_NSENTER || (mntSelf && mntInit && mntSelf !== mntInit))) {
       return 'nsenter';
     }
@@ -138,16 +222,40 @@ async function writeTempFile(ext, content) {
   return tempFile;
 }
 
-async function runShellInject(cssPath, jsPath, delaySec = 0) {
+async function runShellInject(
+  cssPath,
+  jsPath,
+  delaySec = 0,
+  cssMode = 'inline',
+  jsMode = 'inline',
+  assetCssPath = '',
+  assetJsPath = '',
+) {
   return new Promise((resolve, reject) => {
     const runner = selectRunner();
     const delayArg = delaySec > 0 ? String(delaySec) : '0';
-    const baseArgs = [SHELL_INJECT_SCRIPT, cssPath || '', jsPath || '', delayArg];
+    const normalizedCssMode = normalizeInjectMode(cssMode);
+    const normalizedJsMode = normalizeInjectMode(jsMode);
+    const baseArgs = [
+      SHELL_INJECT_SCRIPT,
+      cssPath || '',
+      jsPath || '',
+      delayArg,
+      normalizedCssMode,
+      normalizedJsMode,
+      assetCssPath || '',
+      assetJsPath || '',
+    ];
 
     if (runner === 'at') {
-      const command = `bash ${shellQuote(SHELL_INJECT_SCRIPT)} ${shellQuote(cssPath || '')} ${shellQuote(jsPath || '')} ${shellQuote(delayArg)} >> ${shellQuote(LOG_FILE || '/tmp/fnos-ui-mods.log')} 2>&1`;
+      const command =
+        `bash ${shellQuote(SHELL_INJECT_SCRIPT)} ` +
+        `${shellQuote(cssPath || '')} ${shellQuote(jsPath || '')} ${shellQuote(delayArg)} ` +
+        `${shellQuote(normalizedCssMode)} ${shellQuote(normalizedJsMode)} ` +
+        `${shellQuote(assetCssPath || '')} ${shellQuote(assetJsPath || '')} ` +
+        `>> ${shellQuote(LOG_FILE || '/tmp/fnos-ui-mods.log')} 2>&1`;
       log(`Shell inject (at): ${command}`);
-      runAtCommand(command).then(resolve).catch(reject);
+      runAtCommand(command).then(() => resolve('at')).catch(reject);
       return;
     }
 
@@ -169,7 +277,7 @@ async function runShellInject(cssPath, jsPath, delaySec = 0) {
     child.on('close', (code) => {
       if (stdout.trim()) log(`Shell inject stdout: ${stdout.trim()}`);
       if (stderr.trim()) log(`Shell inject stderr: ${stderr.trim()}`);
-      if (code === 0) return resolve();
+      if (code === 0) return resolve(useNsenter ? 'nsenter' : 'direct');
       const stderrLastLine = stderr
         .split('\n')
         .map((line) => line.trim())
@@ -189,7 +297,6 @@ function log(msg) {
     try {
       fs.appendFileSync(LOG_FILE, line, 'utf8');
     } catch (err) {
-      // fallback to stderr
       process.stderr.write(line);
     }
   } else {
@@ -285,28 +392,34 @@ function insertBeforeTag(html, tagRegex, blockLines, label) {
   return html.slice(0, match.index) + insert + html.slice(match.index);
 }
 
-function buildInjectedHtml(html, finalCss, finalJs) {
+function buildCssBlockLines(finalCss, cssMode) {
+  if (!finalCss) return [];
+  if (normalizeInjectMode(cssMode) === 'tag') {
+    return [finalCss];
+  }
+  return ['<style>', INLINE_CSS_MARKER, finalCss, '</style>'];
+}
+
+function buildJsBlockLines(finalJs, jsMode) {
+  if (!finalJs) return [];
+  if (normalizeInjectMode(jsMode) === 'tag') {
+    return [finalJs];
+  }
+  return ['<script>', INLINE_JS_MARKER, finalJs, '</script>'];
+}
+
+function buildInjectedHtml(html, finalCss, finalJs, { cssMode = 'inline', jsMode = 'inline' } = {}) {
   let next = html;
   if (finalCss) {
-    next = insertBeforeTag(next, /<\/\s*head\s*>/i, [
-      '<style>',
-      '/* Injected CSS */',
-      finalCss,
-      '</style>',
-    ], '</head>');
+    next = insertBeforeTag(next, /<\/\s*head\s*>/i, buildCssBlockLines(finalCss, cssMode), '</head>');
   }
   if (finalJs) {
-    next = insertBeforeTag(next, /<\/\s*body\s*>/i, [
-      '<script>',
-      '// Injected JS',
-      finalJs,
-      '</script>',
-    ], '</body>');
+    next = insertBeforeTag(next, /<\/\s*body\s*>/i, buildJsBlockLines(finalJs, jsMode), '</body>');
   }
   return next;
 }
 
-async function writeIndexHtml(html) {
+async function writeIndexHtml(html, { cssMode = 'inline', jsMode = 'inline' } = {}) {
   const tempFile = path.join(TARGET_DIR, `.fnos-ui-mods-${Date.now()}-${Math.random().toString(16).slice(2)}.tmp`);
   let originalStat = null;
   try {
@@ -330,8 +443,8 @@ async function writeIndexHtml(html) {
   let readbackJs = false;
   try {
     const verify = await fsp.readFile(INDEX_FILE, 'utf8');
-    readbackCss = verify.includes('/* Injected CSS */');
-    readbackJs = verify.includes('// Injected JS');
+    readbackCss = hasCssMarker(verify, cssMode);
+    readbackJs = hasJsMarker(verify, jsMode);
   } catch (err) {
     log(`Inject readback failed: ${err.message}`);
   }
@@ -343,7 +456,12 @@ async function writeIndexHtml(html) {
   };
 }
 
-async function performInjection(finalCss, finalJs, { restoreFromBackup, logPrefix }) {
+async function performInjection(finalCss, finalJs, {
+  restoreFromBackup,
+  logPrefix,
+  cssMode = 'inline',
+  jsMode = 'inline',
+} = {}) {
   if (restoreFromBackup) {
     await ensureBackup();
     await fsp.copyFile(BACKUP_FILE, INDEX_FILE);
@@ -354,11 +472,11 @@ async function performInjection(finalCss, finalJs, { restoreFromBackup, logPrefi
   const hasBody = /<\/\s*body\s*>/i.test(html);
   log(`${logPrefix} target markers: </head> ${hasHead ? 'found' : 'missing'}, </body> ${hasBody ? 'found' : 'missing'}`);
 
-  html = buildInjectedHtml(html, finalCss, finalJs);
+  html = buildInjectedHtml(html, finalCss, finalJs, { cssMode, jsMode });
 
-  const cssInserted = html.includes('/* Injected CSS */');
-  const jsInserted = html.includes('// Injected JS');
-  const { readbackCss, readbackJs, size } = await writeIndexHtml(html);
+  const cssInserted = finalCss ? hasCssMarker(html, cssMode) : true;
+  const jsInserted = finalJs ? hasJsMarker(html, jsMode) : true;
+  const { readbackCss, readbackJs, size } = await writeIndexHtml(html, { cssMode, jsMode });
 
   log(`${logPrefix} result: css=${cssInserted}, js=${jsInserted}, readback css=${readbackCss}, readback js=${readbackJs}, size=${size} bytes`);
   return { cssInserted, jsInserted, readbackCss, readbackJs };
@@ -395,10 +513,10 @@ function startStabilizeGuard() {
 
     try {
       const verify = await fsp.readFile(INDEX_FILE, 'utf8');
-      const cssPresent = verify.includes('/* Injected CSS */');
-      const jsPresent = verify.includes('// Injected JS');
-      const needsCss = lastPayload.css && !cssPresent;
-      const needsJs = lastPayload.js && !jsPresent;
+      const cssPresent = lastPayload.css ? hasCssMarker(verify, lastPayload.cssMode) : true;
+      const jsPresent = lastPayload.js ? hasJsMarker(verify, lastPayload.jsMode) : true;
+      const needsCss = Boolean(lastPayload.css) && !cssPresent;
+      const needsJs = Boolean(lastPayload.js) && !jsPresent;
 
       if (needsCss || needsJs) {
         stabilizeState.stableCount = 0;
@@ -408,6 +526,8 @@ function startStabilizeGuard() {
         await performInjection(cssToApply, jsToApply, {
           restoreFromBackup: false,
           logPrefix: `Stabilize reapply ${stabilizeState.tick}`,
+          cssMode: lastPayload.cssMode,
+          jsMode: lastPayload.jsMode,
         });
         return;
       }
@@ -424,64 +544,470 @@ function startStabilizeGuard() {
   }, STABILIZE_INTERVAL_MS);
 }
 
-async function injectCode({ cssText, jsText, cssPath, jsPath, injectDelaySec }) {
+function normalizeHex(value) {
+  if (typeof value !== 'string') return null;
+  const hex = value.trim().toLowerCase();
+  if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(hex)) return null;
+  if (hex.length === 4) {
+    return `#${hex
+      .slice(1)
+      .split('')
+      .map((char) => char + char)
+      .join('')}`;
+  }
+  return hex;
+}
+
+function clampChannel(value) {
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function rgbToHsl(r, g, b) {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const l = (max + min) / 2;
+
+  if (max === min) {
+    return { h: 0, s: 0, l };
+  }
+
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h;
+
+  switch (max) {
+    case rn:
+      h = (gn - bn) / d + (gn < bn ? 6 : 0);
+      break;
+    case gn:
+      h = (bn - rn) / d + 2;
+      break;
+    default:
+      h = (rn - gn) / d + 4;
+      break;
+  }
+
+  h /= 6;
+  return { h, s, l };
+}
+
+function hue2rgb(p, q, t) {
+  if (t < 0) t += 1;
+  if (t > 1) t -= 1;
+  if (t < 1 / 6) return p + (q - p) * 6 * t;
+  if (t < 1 / 2) return q;
+  if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+  return p;
+}
+
+function hslToRgb(h, s, l) {
+  if (s === 0) {
+    const v = clampChannel(l * 255);
+    return { r: v, g: v, b: v };
+  }
+
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+
+  return {
+    r: clampChannel(hue2rgb(p, q, h + 1 / 3) * 255),
+    g: clampChannel(hue2rgb(p, q, h) * 255),
+    b: clampChannel(hue2rgb(p, q, h - 1 / 3) * 255),
+  };
+}
+
+function rgbToHex({ r, g, b }) {
+  return (
+    '#' +
+    [r, g, b]
+      .map((value) => value.toString(16).padStart(2, '0'))
+      .join('')
+      .toLowerCase()
+  );
+}
+
+function hexToRgb(hex) {
+  const normalized = normalizeHex(hex);
+  if (!normalized) return null;
+
+  const intValue = Number.parseInt(normalized.slice(1), 16);
+  return {
+    r: (intValue >> 16) & 255,
+    g: (intValue >> 8) & 255,
+    b: intValue & 255,
+  };
+}
+
+function clampBrandLightness(hex) {
+  const rgb = hexToRgb(hex) || hexToRgb(DEFAULT_BRAND);
+  const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  const clampedL = Math.min(BRAND_LIGHTNESS_MAX, Math.max(BRAND_LIGHTNESS_MIN, hsl.l));
+  return rgbToHex(hslToRgb(hsl.h, hsl.s, clampedL));
+}
+
+function formatRgb(rgb) {
+  return `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+}
+
+function mixWithBlack(rgb, factor) {
+  return {
+    r: clampChannel(rgb.r * factor),
+    g: clampChannel(rgb.g * factor),
+    b: clampChannel(rgb.b * factor),
+  };
+}
+
+function mixWithWhite(rgb, mix) {
+  const keep = 1 - mix;
+  return {
+    r: clampChannel(rgb.r * keep + 255 * mix),
+    g: clampChannel(rgb.g * keep + 255 * mix),
+    b: clampChannel(rgb.b * keep + 255 * mix),
+  };
+}
+
+function generateBrandPalette(brandHex) {
+  const base = hexToRgb(brandHex) || hexToRgb(DEFAULT_BRAND);
+  const darkFactors = [0.4, 0.55, 0.7, 0.85, 1];
+  const lightMix = [0.2, 0.4, 0.6, 0.8, 0.92];
+
+  const palette = [];
+  darkFactors.forEach((factor) => palette.push(formatRgb(mixWithBlack(base, factor))));
+  lightMix.forEach((mix) => palette.push(formatRgb(mixWithWhite(base, mix))));
+  return palette;
+}
+
+function buildThemeCss(brandHex) {
+  const clamped = clampBrandLightness(brandHex);
+  const palette = generateBrandPalette(clamped);
+  const selectors = [
+    ':root',
+    'body',
+    '#root',
+    '.semi-theme-default',
+    '.semi-theme-dark',
+    '.semi-theme',
+    '[data-theme]',
+    '*',
+  ].join(', ');
+
+  const lines = palette
+    .map((value, index) => `  --semi-brand-${index}: ${value} !important;`)
+    .join('\n');
+
+  return `${selectors} {\n${lines}\n}`;
+}
+
+function normalizeTextContent(content) {
+  return String(content || '').replace(/\r\n/g, '\n').trimEnd() + '\n';
+}
+
+function normalizePresetString(value, maxLength = 120000) {
+  if (typeof value !== 'string') return '';
+  return value.slice(0, maxLength);
+}
+
+function normalizePresetUrl(value) {
+  const raw = normalizePresetString(value, 1000).trim();
+  if (!raw) return '';
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+    return parsed.toString();
+  } catch (_) {
+    return '';
+  }
+}
+
+function normalizeFontWeight(value) {
+  const raw = normalizePresetString(value, 16).trim();
+  if (!raw) return '';
+  const lowered = raw.toLowerCase();
+  if (/^(normal|bold|bolder|lighter)$/.test(lowered)) {
+    return lowered;
+  }
+  if (/^\d{1,4}$/.test(raw)) {
+    const numeric = Math.max(1, Math.min(1000, Number(raw)));
+    return String(numeric);
+  }
+  return '';
+}
+
+function normalizePresetConfig(raw) {
+  const merged = { ...DEFAULT_PRESET_CONFIG, ...(raw && typeof raw === 'object' ? raw : {}) };
+
+  return {
+    titlebarStyle: merged.titlebarStyle === 'mac' ? 'mac' : 'windows',
+    launchpadStyle: merged.launchpadStyle === 'spotlight' ? 'spotlight' : 'classic',
+    brandColor: clampBrandLightness(merged.brandColor),
+    fontOverrideEnabled: Boolean(merged.fontOverrideEnabled),
+    fontFamily: normalizePresetString(merged.fontFamily, 400).trim(),
+    fontUrl: normalizePresetUrl(merged.fontUrl),
+    fontWeight: normalizeFontWeight(merged.fontWeight),
+    fontFeatureSettings: normalizePresetString(merged.fontFeatureSettings, 200).trim(),
+    customCodeEnabled: Boolean(merged.customCodeEnabled),
+    customCss: normalizePresetString(merged.customCss, 240000),
+    customJs: normalizePresetString(merged.customJs, 240000),
+  };
+}
+
+function buildFontCss(presetConfig) {
+  if (!presetConfig.fontOverrideEnabled) return '';
+
+  const declarations = [];
+  const family = presetConfig.fontFamily;
+  const urlValue = presetConfig.fontUrl;
+
+  if (urlValue) {
+    declarations.push(
+      '@font-face {',
+      '  font-family: "FnOSCustomFont";',
+      `  src: url("${urlValue.replace(/"/g, '\\"')}");`,
+      '  font-display: swap;',
+      '}',
+      ''
+    );
+  }
+
+  const familyParts = [];
+  if (urlValue) {
+    familyParts.push('"FnOSCustomFont"');
+  }
+  if (family) {
+    familyParts.push(family);
+  }
+
+  if (!familyParts.length) return declarations.join('\n');
+
+  declarations.push(':root, body, #root, #root *, .semi-theme, .semi-theme * {');
+  declarations.push(`  font-family: ${familyParts.join(', ')} !important;`);
+  if (presetConfig.fontWeight) {
+    declarations.push(`  font-weight: ${presetConfig.fontWeight} !important;`);
+  }
+  if (presetConfig.fontFeatureSettings) {
+    declarations.push(`  font-feature-settings: ${presetConfig.fontFeatureSettings} !important;`);
+  }
+  declarations.push('}');
+
+  return declarations.join('\n');
+}
+
+function buildBanner() {
+  const timestamp = new Date().toISOString();
+  return [
+    '/* ============================================= */',
+    '/* Auto-generated by FnOS_UI_Mods fpk preset     */',
+    `/* Build time: ${timestamp} */`,
+    '/* ============================================= */',
+    '',
+  ].join('\n');
+}
+
+async function ensurePresetTemplates() {
+  const requiredFiles = Object.values(PRESET_FILES);
+  await Promise.all(
+    requiredFiles.map(async (filePath) => {
+      try {
+        await fsp.access(filePath, fs.constants.R_OK);
+      } catch (_) {
+        throw new Error(`缺少预设模板文件: ${filePath}`);
+      }
+    })
+  );
+}
+
+async function readPresetTemplates() {
+  await ensurePresetTemplates();
+  const [
+    js,
+    basicCss,
+    windowsTitlebarCss,
+    macTitlebarCss,
+    classicLaunchpadCss,
+    spotlightLaunchpadCss,
+  ] = await Promise.all([
+    fsp.readFile(PRESET_FILES.js, 'utf8'),
+    fsp.readFile(PRESET_FILES.basicCss, 'utf8'),
+    fsp.readFile(PRESET_FILES.windowsTitlebarCss, 'utf8'),
+    fsp.readFile(PRESET_FILES.macTitlebarCss, 'utf8'),
+    fsp.readFile(PRESET_FILES.classicLaunchpadCss, 'utf8'),
+    fsp.readFile(PRESET_FILES.spotlightLaunchpadCss, 'utf8'),
+  ]);
+
+  return {
+    js,
+    basicCss,
+    windowsTitlebarCss,
+    macTitlebarCss,
+    classicLaunchpadCss,
+    spotlightLaunchpadCss,
+  };
+}
+
+function buildPresetCss(presetConfig, templates) {
+  const titlebarCss = presetConfig.titlebarStyle === 'mac' ? templates.macTitlebarCss : templates.windowsTitlebarCss;
+  const launchpadCss = presetConfig.launchpadStyle === 'spotlight'
+    ? templates.spotlightLaunchpadCss
+    : templates.classicLaunchpadCss;
+
+  const parts = [
+    `/* ----- basic_mod.css ----- */\n${normalizeTextContent(templates.basicCss)}`,
+    `/* ----- ${presetConfig.titlebarStyle === 'mac' ? 'mac_titlebar_mod.css' : 'windows_titlebar_mod.css'} ----- */\n${normalizeTextContent(titlebarCss)}`,
+    `/* ----- ${presetConfig.launchpadStyle === 'spotlight' ? 'spotlight_launchpad_mod.css' : 'classic_launchpad_mod.css'} ----- */\n${normalizeTextContent(launchpadCss)}`,
+    `/* ----- generated.theme.css ----- */\n${normalizeTextContent(buildThemeCss(presetConfig.brandColor))}`,
+  ];
+
+  const fontCss = buildFontCss(presetConfig);
+  if (fontCss) {
+    parts.push(`/* ----- generated.font.css ----- */\n${normalizeTextContent(fontCss)}`);
+  }
+
+  if (presetConfig.customCodeEnabled && presetConfig.customCss.trim()) {
+    parts.push(`/* ----- generated.custom.css ----- */\n${normalizeTextContent(presetConfig.customCss)}`);
+  }
+
+  return buildBanner() + parts.join('\n');
+}
+
+function buildPresetJs(presetConfig, templates) {
+  const parts = [buildBanner(), normalizeTextContent(templates.js)];
+  if (presetConfig.customCodeEnabled && presetConfig.customJs.trim()) {
+    parts.push('\n/* ----- generated.custom.js ----- */\n');
+    parts.push(normalizeTextContent(presetConfig.customJs));
+  }
+  return parts.join('');
+}
+
+async function buildPresetAssets(presetConfig) {
+  const templates = await readPresetTemplates();
+  const cssContent = buildPresetCss(presetConfig, templates);
+  const jsContent = buildPresetJs(presetConfig, templates);
+
+  return { cssContent, jsContent };
+}
+
+async function writePresetAssetsToTarget(cssContent, jsContent) {
+  await fsp.mkdir(PRESET_STORE_DIR, { recursive: true });
+  await Promise.all([
+    fsp.writeFile(PRESET_CSS_TARGET, cssContent, 'utf8'),
+    fsp.writeFile(PRESET_JS_TARGET, jsContent, 'utf8'),
+  ]);
+  await Promise.all([
+    fsp.chmod(PRESET_CSS_TARGET, 0o644).catch(() => {}),
+    fsp.chmod(PRESET_JS_TARGET, 0o644).catch(() => {}),
+  ]);
+
+  log(`Preset assets written: css=${PRESET_CSS_TARGET} (${Buffer.byteLength(cssContent)} bytes), js=${PRESET_JS_TARGET} (${Buffer.byteLength(jsContent)} bytes)`);
+}
+
+async function injectCode({
+  injectMode,
+  presetConfig,
+  assetBaseUrl,
+  cssText,
+  jsText,
+  cssPath,
+  jsPath,
+  injectDelaySec,
+}) {
+  const mode = injectMode === 'preset' ? 'preset' : 'custom';
   const delaySec = Number.isFinite(Number(injectDelaySec)) ? Number(injectDelaySec) : 0;
+
   log(
-    `Inject request: cssText=${cssText ? cssText.length : 0} chars, jsText=${jsText ? jsText.length : 0} chars, cssPath=${cssPath || '-'}, jsPath=${jsPath || '-'}, delay=${delaySec}s`,
+    `Inject request: mode=${mode}, cssText=${cssText ? cssText.length : 0} chars, jsText=${jsText ? jsText.length : 0} chars, cssPath=${cssPath || '-'}, jsPath=${jsPath || '-'}, delay=${delaySec}s`,
   );
 
   let finalCss = null;
   let finalJs = null;
+  let cssMode = 'inline';
+  let jsMode = 'inline';
+  let presetAssetCssContent = '';
+  let presetAssetJsContent = '';
 
-  if (cssPath) {
-    finalCss = await readTextFromPath(cssPath);
-  } else if (cssText) {
-    finalCss = cssText;
+  if (mode === 'preset') {
+    const normalizedPresetConfig = normalizePresetConfig(presetConfig);
+    const builtAssets = await buildPresetAssets(normalizedPresetConfig);
+    presetAssetCssContent = builtAssets.cssContent;
+    presetAssetJsContent = builtAssets.jsContent;
+    finalCss = buildPresetCssLinkBlock(assetBaseUrl);
+    finalJs = buildPresetJsLinkBlock(assetBaseUrl);
+    cssMode = 'tag';
+    jsMode = 'tag';
+  } else {
+    if (cssPath) {
+      finalCss = await readTextFromPath(cssPath);
+    } else if (cssText) {
+      finalCss = cssText;
+    }
+
+    if (jsPath) {
+      finalJs = await readTextFromPath(jsPath);
+    } else if (jsText) {
+      finalJs = jsText;
+    }
+
+    if (!finalCss && !finalJs) {
+      log('Inject aborted: no css/js provided');
+      return { injected: false, message: '未提供任何 CSS/JS 内容' };
+    }
   }
 
-  if (jsPath) {
-    finalJs = await readTextFromPath(jsPath);
-  } else if (jsText) {
-    finalJs = jsText;
-  }
-
-  if (!finalCss && !finalJs) {
-    log('Inject aborted: no css/js provided');
-    return { injected: false, message: '未提供任何 CSS/JS 内容' };
-  }
-
-  lastPayload = { css: finalCss, js: finalJs };
+  lastPayload = { css: finalCss, js: finalJs, cssMode, jsMode };
 
   if (USE_SHELL_INJECT) {
     let cssTemp = '';
     let jsTemp = '';
+    let runnerUsed = 'direct';
+    const pathCssInput = mode === 'custom' ? (cssPath || '') : '';
+    const pathJsInput = mode === 'custom' ? (jsPath || '') : '';
     try {
-      const cssInputPath = cssPath || (finalCss ? await writeTempFile('.css', finalCss) : '');
-      const jsInputPath = jsPath || (finalJs ? await writeTempFile('.js', finalJs) : '');
-      cssTemp = cssPath ? '' : cssInputPath;
-      jsTemp = jsPath ? '' : jsInputPath;
-      await runShellInject(cssInputPath, jsInputPath, delaySec);
+      if (mode === 'preset') {
+        // Prefer direct write when namespace is shared; shell copy remains as fallback.
+        await writePresetAssetsToTarget(presetAssetCssContent, presetAssetJsContent);
+      }
+      const cssInputPath = pathCssInput || (finalCss ? await writeTempFile('.css', finalCss) : '');
+      const jsInputPath = pathJsInput || (finalJs ? await writeTempFile('.js', finalJs) : '');
+      cssTemp = pathCssInput ? '' : cssInputPath;
+      jsTemp = pathJsInput ? '' : jsInputPath;
+      runnerUsed = await runShellInject(cssInputPath, jsInputPath, delaySec, cssMode, jsMode, '', '');
     } finally {
-      if (cssTemp) {
+      const allowCleanup = runnerUsed !== 'at';
+      if (cssTemp && allowCleanup) {
         await fsp.unlink(cssTemp).catch(() => {});
       }
-      if (jsTemp) {
+      if (jsTemp && allowCleanup) {
         await fsp.unlink(jsTemp).catch(() => {});
+      }
+      if (!allowCleanup) {
+        log(`Shell inject runner is at; temp files retained for async execution: css=${cssTemp || '-'}, js=${jsTemp || '-'}`);
       }
     }
   } else {
     if (delaySec > 0) {
       await new Promise((resolve) => setTimeout(resolve, delaySec * 1000));
     }
+    if (mode === 'preset') {
+      await writePresetAssetsToTarget(presetAssetCssContent, presetAssetJsContent);
+    }
     await performInjection(finalCss, finalJs, {
       restoreFromBackup: true,
       logPrefix: 'Inject',
+      cssMode,
+      jsMode,
     });
   }
 
   if (ENABLE_GUARD) {
     startStabilizeGuard();
   }
+
+  if (mode === 'preset') {
+    return { injected: true, message: '预设资源已生成并注入成功，请强制刷新浏览器 (Ctrl+F5) 查看效果。' };
+  }
+
   return { injected: true, message: '注入成功，请强制刷新浏览器 (Ctrl+F5) 查看效果。' };
 }
 
@@ -489,10 +1015,16 @@ async function getStatus() {
   const result = {
     indexPath: INDEX_FILE,
     backupPath: BACKUP_FILE,
+    assetsCssPath: PRESET_CSS_TARGET,
+    assetsJsPath: PRESET_JS_TARGET,
     indexExists: false,
     backupExists: false,
+    assetsCssExists: false,
+    assetsJsExists: false,
     indexMtime: null,
     backupMtime: null,
+    assetsCssMtime: null,
+    assetsJsMtime: null,
   };
 
   try {
@@ -505,6 +1037,18 @@ async function getStatus() {
     const stat = await fsp.stat(BACKUP_FILE);
     result.backupExists = true;
     result.backupMtime = stat.mtime.toISOString();
+  } catch (_) {}
+
+  try {
+    const stat = await fsp.stat(PRESET_CSS_TARGET);
+    result.assetsCssExists = true;
+    result.assetsCssMtime = stat.mtime.toISOString();
+  } catch (_) {}
+
+  try {
+    const stat = await fsp.stat(PRESET_JS_TARGET);
+    result.assetsJsExists = true;
+    result.assetsJsMtime = stat.mtime.toISOString();
   } catch (_) {}
 
   return result;
@@ -580,9 +1124,28 @@ async function handleStatic(req, res, pathname) {
   }
 }
 
+async function handlePresetAsset(req, res, pathname) {
+  const target = pathname === '/preset/mod.css' ? PRESET_CSS_TARGET : PRESET_JS_TARGET;
+  try {
+    const data = await fsp.readFile(target);
+    res.writeHead(200, {
+      'Content-Type': mimeFor(target),
+      'Content-Length': data.length,
+      'Cache-Control': 'no-store',
+    });
+    res.end(data);
+  } catch (err) {
+    return sendText(res, 404, 'Not Found');
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   const parsedUrl = url.parse(req.url || '/', true);
   const pathname = parsedUrl.pathname || '/';
+
+  if (req.method === 'GET' && (pathname === '/preset/mod.css' || pathname === '/preset/mod.js')) {
+    return handlePresetAsset(req, res, pathname);
+  }
 
   if (pathname.startsWith('/api/')) {
     try {
@@ -598,13 +1161,19 @@ const server = http.createServer(async (req, res) => {
 
       if (req.method === 'POST' && pathname === '/api/inject') {
         const body = await readJsonBody(req);
+        const injectMode = typeof body.injectMode === 'string' ? body.injectMode.trim() : 'custom';
+        const assetBaseUrl = typeof body.assetBaseUrl === 'string' ? body.assetBaseUrl.trim() : '';
         const cssText = typeof body.cssText === 'string' ? body.cssText.trim() : '';
         const jsText = typeof body.jsText === 'string' ? body.jsText.trim() : '';
         const cssPath = typeof body.cssPath === 'string' ? body.cssPath.trim() : '';
         const jsPath = typeof body.jsPath === 'string' ? body.jsPath.trim() : '';
-        const injectDelaySec = body && typeof body.injectDelaySec !== 'undefined' ? body.injectDelaySec : 0;
+        const injectDelaySec = typeof body.injectDelaySec !== 'undefined' ? body.injectDelaySec : 0;
+        const presetConfig = body && typeof body.presetConfig === 'object' ? body.presetConfig : null;
 
         const result = await injectCode({
+          injectMode,
+          presetConfig,
+          assetBaseUrl,
           cssText: cssText || null,
           jsText: jsText || null,
           cssPath: cssPath || null,

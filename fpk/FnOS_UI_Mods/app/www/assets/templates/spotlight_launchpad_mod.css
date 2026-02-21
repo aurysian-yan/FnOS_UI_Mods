@@ -1,0 +1,62 @@
+/* 聚焦样式启动台 */
+
+.flex.flex-col.justify-start.items-center.pl-\[280px\].pr-\[216px\].py-\[64px\].h-full.box-border {
+    padding: 0 8px 8px;
+}
+
+.absolute.inset-0.z-\[1000001\].bg-\[rgba\(0\,0\,0\,0\.70\)\].backdrop-blur-2xl:has(.flex.flex-col.justify-start.items-center.pl-\[280px\].pr-\[216px\].py-\[64px\].h-full.box-border) {
+    position: fixed;
+    /* width: 50vw;
+    height: 50vh;
+    min-width: 648px;
+    min-height: 512px; */
+    width: 648px;
+    height: 512px;
+    max-height: 75vh;
+    max-width: 75vw;
+    aspect-ratio: 648 / 512;
+    margin: auto;
+    backdrop-filter: saturate(2) blur(32px) !important;
+    corner-shape: superellipse(2);
+    border-radius: 48px;
+    box-shadow: 0px 6px 32px 0px var(--semi-color-shadow), 0px 2px 16px -6px rgba(3, 3, 3, .08), 0px 12px 40px -4px rgba(10, 10, 10, .08);
+    backdrop-filter: saturate(2) blur(32px) !important;
+    outline: solid var(--semi-color-white-20) 1px;
+}
+
+.flex.flex-col.justify-start.items-center.pl-\[280px\].pr-\[216px\].py-\[64px\].h-full.box-border .grid.grid-cols-\[repeat\(auto-fill\,_172px\)\].justify-center {
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+    padding-top: 8px;
+}
+
+.grid.grid-cols-\[repeat\(auto-fill\,_172px\)\].justify-center>.flex.flex-col.justify-center.items-center.w-\[172px\].h-\[156px\].hover\:bg-\[var\(--semi-color-white-10\)\].rounded-2xl.cursor-pointer {
+    width: auto;
+    height: auto;
+    border-radius: 24px;
+    corner-shape: superellipse(2);
+    transition: 0.15s ease-in-out;
+}
+
+.flex.flex-col.justify-start.items-center.pl-\[280px\].pr-\[216px\].py-\[64px\].h-full.box-border>.w-\[380px\].pb-base-loose {
+    width: 100%;
+    max-width: unset !important;
+    padding-bottom: 0;
+}
+
+.flex.flex-col.justify-start.items-center.pl-\[280px\].pr-\[216px\].py-\[64px\].h-full.box-border {
+
+    .semi-input-wrapper,
+    .semi-input-wrapper:hover,
+    .semi-input-wrapper.w-full.\!h-\[44px\].rounded-\[8px\].border.border-solid.box-border.py-\[5px\].px-\[10px\].placeholder\:text-white-50.\!bg-white-10.\!text-base.font-normal.leading-\[22px\].\!text-white.\!border-white-20.semi-input-wrapper__with-prefix.semi-input-wrapper-default,
+    .semi-input-wrapper.w-full.\!h-\[44px\].rounded-\[8px\].border.border-solid.box-border.py-\[5px\].px-\[10px\].placeholder\:text-white-50.\!bg-white-10.\!text-base.font-normal.leading-\[22px\].\!text-white.\!border-white-20.semi-input-wrapper__with-prefix.semi-input-wrapper-default:hover {
+        border-radius: 0 !important;
+        corner-shape: unset;
+        border-width: 0 0 1px 0;
+        background: transparent !important;
+        height: 52px !important;
+        margin: 0 10px !important;
+        width: calc(100% - 20px);
+        box-sizing: border-box;
+    }
+}

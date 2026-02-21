@@ -6,6 +6,7 @@
   --overview-bg: rgba(206, 227, 255, 0.62);
   --file-bg: rgba(239, 243, 250, 0.78);
   --field-bg: rgba(239, 243, 250, 0.78);
+  --card-bg: rgba(239, 243, 250, 0.6);
   --control-border: rgba(31, 41, 55, 0.35);
   --control-bg: rgba(31, 41, 55, 0.06);
   --radio-border: rgba(31, 41, 55, 0.3);
@@ -24,6 +25,16 @@
   --radius-pill: 9999px;
 }
 
+@font-face {
+  font-family: "SarasaMonoSC";
+  src: url("./fonts/SarasaMonoSC-SemiBold.ttf");
+}
+
+@font-face {
+  font-family: "SarasaUISC";
+  src: url("./fonts/SarasaUiSC-SemiBold.ttf");
+}
+
 :root[theme-mode="dark"] {
   --semi-color-text-0: #eef3fb;
   --semi-color-text-1: #97a0af;
@@ -31,6 +42,7 @@
   --overview-bg: rgba(45, 77, 111, 0.62);
   --file-bg: rgba(50, 51, 58, 0.72);
   --field-bg: rgba(52, 53, 61, 0.72);
+  --card-bg: rgba(45, 50, 59, 0.7);
   --control-border: rgba(238, 243, 251, 0.55);
   --control-bg: rgba(255, 255, 255, 0.08);
   --radio-border: rgba(238, 243, 251, 0.45);
@@ -74,11 +86,431 @@ body {
   margin: 1.25rem auto;
   display: flex;
   flex-direction: column;
-  gap: 1.625rem;
+  gap: 1.2rem;
+}
+
+.mode-tabs {
+  width: min(48.75rem, 100%);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(12rem, 1fr));
+  gap: 0.75rem;
+}
+
+.mode-tab {
+  border: 0.125rem solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  background: var(--overview-bg);
+  color: var(--semi-color-text-1);
+  padding: 0.72rem 0.9rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.01rem;
+  cursor: pointer;
+  text-align: center;
+}
+
+.mode-tab.is-active {
+  color: var(--semi-color-text-0);
+  border-color: var(--radio);
+  background: color-mix(in srgb, var(--overview-bg) 75%, var(--radio) 18%);
+}
+
+.tab-panel {
+  width: min(48.75rem, 100%);
+  display: none;
+}
+
+.tab-panel.is-active {
+  display: block;
+}
+
+.card {
+  border: 0.125rem solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  background: var(--card-bg);
+  padding: 0.9rem;
+}
+
+.preset-card {
+  --bg: #e9e9e9;
+  --text: #222;
+  --muted: color-mix(in srgb, var(--text) 75%, transparent);
+  --card-bg: #fff;
+  --card-border: #d4d4d4;
+  --tip: #888;
+  --switch-off: #858585;
+  --switch-on: rgb(0, 102, 255);
+  border: none;
+  border-top: 1px solid var(--card-border);
+  border-radius: 0;
+  padding: 13px;
+  background: var(--card-bg);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 4px;
+  min-height: calc(100vh - 154px);
+  box-sizing: border-box;
+  font-family: "SarasaUISC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text);
+}
+
+:root[theme-mode="dark"] .preset-card {
+  --bg: #171717;
+  --text: #f3f4f6;
+  --card-bg: #202020;
+  --card-border: #343434;
+  --tip: #8b8b8b;
+}
+
+.preset-card .row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 36px;
+  width: 100%;
+}
+
+.preset-card .label {
+  font-size: 13px;
+  line-height: 18px;
+  margin: 0 4px;
+}
+
+.preset-card .label .sub {
+  font-size: 12px;
+  color: var(--tip);
+  margin-top: 2px;
+  font-family: "SarasaMonoSC", monospace;
+}
+
+.preset-card .theme-row {
+  align-items: center;
+  gap: 8px;
+}
+
+.preset-card .theme-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 4px;
+}
+
+.preset-card .theme-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 10px;
+  border: none;
+  background: conic-gradient(from 90deg, #f00 0deg, #fb00ff 72deg, #00a1ff 144deg, #44ff00 216deg, #fff700 288deg, #f00 360deg);
+  height: 28px;
+  width: 28px;
+  box-sizing: border-box;
+}
+
+.preset-card .theme-controls::after {
+  content: "";
+  height: 18px;
+  width: 18px;
+  position: absolute;
+  margin-left: -1px;
+  background: var(--switch-on);
+  border-radius: 99px;
+  outline: 2px solid var(--card-bg);
+}
+
+.preset-card .theme-reset {
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  display: inline-flex;
+  transition: color 0.3s ease-in-out;
+  height: 18px;
+  width: 18px;
+  align-items: center;
+  justify-content: center;
+}
+
+.preset-card .theme-reset:hover {
+  color: var(--switch-on);
+}
+
+.preset-card .theme-reset:active {
+  opacity: 0.75;
+  transform: scale(0.98);
+}
+
+.preset-card .color-input {
+  width: 36px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  visibility: hidden;
+}
+
+.preset-card .color-input::-webkit-color-swatch {
+  border: none;
+  border-radius: 4px;
+}
+
+.preset-card .platform-group {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  background: var(--bg);
+  width: 100%;
+  margin-top: 8px;
+}
+
+.preset-card .platform-option {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.preset-card .platform-option + .platform-option {
+  border-top: 1px solid var(--card-border);
+}
+
+.preset-card .platform-option input {
+  margin: 1px 4px 0 0;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--switch-on);
+  flex-shrink: 0;
+}
+
+.preset-card .platform-title {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+}
+
+.preset-card .platform-desc {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.preset-card .switch {
+  box-sizing: border-box;
+  display: inline-flex;
+  border-radius: 13px;
+  border: 1px transparent solid;
+  position: relative;
+  cursor: pointer;
+  width: 48px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.preset-card .switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.preset-card .slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--switch-off);
+  transition: 0.2s ease;
+  display: flex;
+  align-items: center;
+  flex-direction: row;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.preset-card .slider::before {
+  content: "";
+  position: absolute;
+  width: 26px;
+  height: 18px;
+  left: 2px;
+  top: 2px;
+  border-radius: 999px;
+  background: #fff;
+  transition: scale 0.4s cubic-bezier(0, 1.16, 0.29, 1.44) 0.1s, left 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease-in-out, outline-color 0.2s ease-in-out;
+  box-shadow: 1px 1px 1px -1px #fff inset, -1px -1px 2px -1px #fff inset, 0 0 1px 0.25px rgba(255, 255, 255, 0.1) inset;
+  filter: drop-shadow(0 0 44px rgba(0, 0, 0, 0.1)) drop-shadow(0 0 4px rgba(0, 0, 0, 0.05)) drop-shadow(0 0 1px rgba(0, 0, 0, 0.05));
+  z-index: 10;
+  transform-origin: center;
+  backdrop-filter: blur(1px) saturate(100%);
+  outline: 0.75px solid transparent;
+}
+
+.preset-card .slider:active::before {
+  background: rgba(255, 255, 255, 0.3);
+  scale: 1.4;
+  transition: scale 0.4s cubic-bezier(0, 1.16, 0.29, 1.44), left 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease-in-out, outline-color 0.2s ease-in-out;
+  outline-color: color-mix(in srgb, var(--switch-off) 35%, transparent);
+}
+
+:root[theme-mode="dark"] .preset-card .slider:active::before {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.preset-card .switch input:checked + .slider {
+  background: var(--switch-on);
+}
+
+.preset-card .switch input:checked + .slider::before {
+  left: 18px;
+}
+
+.preset-card .switch input:checked + .slider:active::before {
+  outline-color: color-mix(in srgb, var(--switch-on) 35%, transparent);
+}
+
+.preset-card .switch input:disabled + .slider {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.preset-card span.slider #mask1 {
+  position: absolute;
+  left: 0;
+}
+
+.preset-card span.slider #mask2 {
+  position: absolute;
+  right: 0;
+}
+
+.preset-card .font-settings,
+.preset-card .color-settings,
+.preset-card .custom-code-settings {
+  width: 100%;
+  margin-top: 8px;
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 10px;
+  box-sizing: border-box;
+  display: grid;
+  gap: 8px;
+  background: var(--bg);
+}
+
+.preset-card .field-stack {
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preset-card .field {
+  display: grid;
+  gap: 4px;
+}
+
+.preset-card .field-label {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.preset-card .field-input {
+  width: calc(100% + 4px);
+  box-sizing: border-box;
+  border-radius: 4px;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+  color: var(--text);
+  font-size: 13px;
+  padding: 8px 10px;
+  font-family: "SarasaUISC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  outline: none;
+  margin: 2px -2px -2px;
+}
+
+.preset-card .field-input:focus {
+  border-color: var(--switch-on);
+  outline: none;
+}
+
+.preset-card .code-input {
+  min-height: 96px;
+  resize: vertical;
+  font-family: "SarasaMonoSC", monospace;
+  line-height: 1.4;
+}
+
+.preset-card .field-help {
+  font-size: 12px;
+  color: var(--tip);
+  font-family: "SarasaMonoSC", monospace;
+  word-break: break-all;
+  margin: 4px;
+}
+
+.preset-card .launchpad-extra-settings {
+  margin-top: 8px;
+  width: 100%;
+  border: 1px solid var(--card-border);
+  border-radius: 14px;
+  padding: 8px;
+  box-sizing: border-box;
+  background: var(--bg);
+  max-height: 648px;
+}
+
+.preset-card .launchpad-extra-settings .label {
+  margin: 4px;
+}
+
+.preset-card .launchpad-app-list {
+  margin-top: 6px;
+  padding: 8px;
+  border: 1px solid var(--card-border);
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.45;
+  font-family: "SarasaMonoSC", monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  box-sizing: border-box;
+  height: calc(100% - 62px);
+  background: var(--card-bg);
+  border-radius: 4px;
+  color: var(--text);
+}
+
+@supports (corner-shape: superellipse(1.5)) {
+  .preset-card .platform-group,
+  .preset-card .font-settings,
+  .preset-card .color-settings,
+  .preset-card .custom-code-settings,
+  .preset-card .launchpad-extra-settings {
+    border-radius: 16px;
+    corner-shape: superellipse(1.5);
+  }
+
+  .preset-card .field-input,
+  .preset-card .launchpad-app-list {
+    border-radius: 6px;
+    corner-shape: superellipse(1.5);
+  }
 }
 
 .top-switches {
-  width: min(48.75rem, 100%);
+  width: 100%;
   display: grid;
   grid-template-columns: repeat(2, minmax(16.25rem, 1fr));
   gap: 1rem;
@@ -139,16 +571,16 @@ body {
   transition: transform 0.2s ease;
 }
 
-.overview-toggle:checked+.custom-checkbox {
+.overview-toggle:checked + .custom-checkbox {
   background: var(--radio);
   border-color: var(--radio);
 }
 
-.overview-toggle:checked+.custom-checkbox::after {
+.overview-toggle:checked + .custom-checkbox::after {
   transform: rotate(-45deg) scale(1);
 }
 
-.overview-toggle:focus-visible+.custom-checkbox {
+.overview-toggle:focus-visible + .custom-checkbox {
   outline: 0.125rem solid rgba(61, 159, 255, 0.55);
   outline-offset: 0.125rem;
 }
@@ -173,10 +605,11 @@ body {
 }
 
 .work-area {
-  width: min(48.75rem, 100%);
+  width: 100%;
+  margin-top: 1.2rem;
   display: flex;
   flex-direction: column;
-  gap: 1.375rem;
+  gap: 1.1rem;
 }
 
 .inject-module h2 {
@@ -189,14 +622,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 1.125rem;
-  margin: 0 0.65rem 0.625rem;
-}
-
-.mode-select {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1.125rem;
-  margin-bottom: 0.875rem;
+  margin: 0 0.65rem 0.875rem;
 }
 
 .mode-option {
@@ -234,15 +660,15 @@ body {
   corner-shape: unset;
 }
 
-.mode-option input[type="radio"]:checked+.custom-radio {
+.mode-option input[type="radio"]:checked + .custom-radio {
   border-color: var(--radio);
 }
 
-.mode-option input[type="radio"]:checked+.custom-radio::after {
+.mode-option input[type="radio"]:checked + .custom-radio::after {
   transform: scale(1);
 }
 
-.mode-option input[type="radio"]:focus-visible+.custom-radio {
+.mode-option input[type="radio"]:focus-visible + .custom-radio {
   outline: 0.125rem solid rgba(61, 159, 255, 0.55);
   outline-offset: 0.125rem;
 }
@@ -425,13 +851,17 @@ button:disabled {
     gap: 1rem;
   }
 
-  .top-switches {
+  .mode-tabs {
     width: 100%;
     grid-template-columns: 1fr;
   }
 
-  .work-area {
+  .tab-panel {
     width: 100%;
+  }
+
+  .top-switches {
+    grid-template-columns: 1fr;
   }
 
   .inject-overview h1 {
