@@ -35,6 +35,9 @@ const styleWindowsEl = document.getElementById('styleWindows');
 const styleMacEl = document.getElementById('styleMac');
 const styleClassicLaunchpadEl = document.getElementById('styleClassicLaunchpad');
 const styleSpotlightLaunchpadEl = document.getElementById('styleSpotlightLaunchpad');
+const launchpadIconScaleEnabledEl = document.getElementById('launchpadIconScaleEnabled');
+const launchpadAppListStatusEl = document.getElementById('launchpadAppListStatus');
+const launchpadAppListEl = document.getElementById('launchpadAppList');
 const fontOverrideEnabledEl = document.getElementById('fontOverrideEnabled');
 const fontSettingsEl = document.getElementById('fontSettings');
 const fontFamilyEl = document.getElementById('fontFamily');
@@ -54,6 +57,8 @@ const BRAND_LIGHTNESS_MAX = 0.7;
 const DEFAULT_PRESET_CONFIG = {
   titlebarStyle: 'windows',
   launchpadStyle: 'classic',
+  launchpadIconScaleEnabled: false,
+  launchpadIconScaleSelectedKeys: [],
   brandColor: DEFAULT_BRAND_COLOR,
   fontOverrideEnabled: false,
   fontFamily: '',
@@ -82,6 +87,9 @@ const prefersDarkMedia = window.matchMedia ? window.matchMedia('(prefers-color-s
 let themeModeObserver = null;
 let themeModeSyncedFromParent = false;
 let activeTab = 'preset';
+let launchpadAppItems = [];
+let launchpadIconScaleSelectedKeys = [];
+let launchpadPollTimer = null;
 
 function apiUrl(path) {
   const cleanPath = path.replace(/^\/+/, '');
@@ -312,6 +320,136 @@ function fileHint(input, hintEl) {
   hintEl.textContent = `${file.name} · ${size} KB`;
 }
 
+function normalizeLaunchpadKeyList(value, maxLength = 320) {
+  if (!Array.isArray(value)) return [];
+  const unique = new Set();
+  value.forEach((item) => {
+    if (typeof item !== 'string') return;
+    const key = item.trim().slice(0, maxLength);
+    if (!key) return;
+    unique.add(key);
+  });
+  return Array.from(unique);
+}
+
+function normalizeLaunchpadAppItems(items) {
+  if (!Array.isArray(items)) return [];
+  const keyMap = new Map();
+  items.forEach((item) => {
+    if (!item || typeof item !== 'object') return;
+    const key = typeof item.key === 'string' ? item.key.trim().slice(0, 320) : '';
+    if (!key) return;
+    const titleRaw = typeof item.title === 'string' ? item.title.trim().slice(0, 200) : '';
+    const title = titleRaw || key.split('/').pop() || key;
+    const iconSrc = typeof item.iconSrc === 'string' ? item.iconSrc.trim() : '';
+    keyMap.set(key, { key, title, iconSrc });
+  });
+  return Array.from(keyMap.values());
+}
+
+function setLaunchpadAppListStatus(text) {
+  if (!launchpadAppListStatusEl) return;
+  launchpadAppListStatusEl.textContent = text;
+}
+
+function renderLaunchpadAppList() {
+  if (!launchpadAppListEl) return;
+
+  if (!launchpadAppItems.length) {
+    launchpadAppListEl.textContent = '暂无数据';
+    return;
+  }
+
+  const selectedSet = new Set(launchpadIconScaleSelectedKeys);
+  const fragment = document.createDocumentFragment();
+
+  launchpadAppItems.forEach(({ key, title, iconSrc }) => {
+    const itemEl = document.createElement('label');
+    itemEl.className = 'launchpad-app-item';
+
+    const checkboxEl = document.createElement('input');
+    checkboxEl.type = 'checkbox';
+    checkboxEl.dataset.launchpadKey = key;
+    checkboxEl.checked = selectedSet.has(key);
+
+    const textWrapEl = document.createElement('span');
+    textWrapEl.className = 'launchpad-app-text';
+
+    const titleRowEl = document.createElement('span');
+    titleRowEl.className = 'launchpad-app-title-row';
+
+    const iconEl = document.createElement('img');
+    iconEl.className = 'launchpad-app-icon';
+    iconEl.alt = '';
+    if (iconSrc) {
+      iconEl.src = iconSrc;
+      iconEl.referrerPolicy = 'no-referrer';
+      iconEl.addEventListener('error', () => {
+        iconEl.style.visibility = 'hidden';
+      });
+    } else {
+      iconEl.style.visibility = 'hidden';
+    }
+
+    const titleEl = document.createElement('span');
+    titleEl.textContent = title;
+
+    const keyEl = document.createElement('span');
+    keyEl.className = 'launchpad-app-key';
+    keyEl.textContent = key;
+
+    titleRowEl.appendChild(iconEl);
+    titleRowEl.appendChild(titleEl);
+    textWrapEl.appendChild(titleRowEl);
+    textWrapEl.appendChild(keyEl);
+
+    itemEl.appendChild(checkboxEl);
+    itemEl.appendChild(textWrapEl);
+    fragment.appendChild(itemEl);
+  });
+
+  launchpadAppListEl.textContent = '';
+  launchpadAppListEl.appendChild(fragment);
+}
+
+async function loadLaunchpadAppItems() {
+  try {
+    const res = await fetch(apiUrl('api/launchpad/apps'), { cache: 'no-store' });
+    const payload = await res.json();
+    if (!payload.ok) {
+      throw new Error(payload.message || '启动台应用列表读取失败');
+    }
+
+    const report = payload.data || {};
+    launchpadAppItems = normalizeLaunchpadAppItems(report.items || []);
+    launchpadIconScaleSelectedKeys = normalizeLaunchpadKeyList(launchpadIconScaleSelectedKeys);
+    renderLaunchpadAppList();
+
+    if (launchpadAppItems.length > 0) {
+      const updatedAtText = report.updatedAt ? `，最近更新：${formatTime(report.updatedAt)}` : '';
+      const fromCli = typeof report.source === 'string' && report.source.startsWith('appcenter-cli');
+      if (fromCli) {
+        setLaunchpadAppListStatus(`应用列表：${launchpadAppItems.length} 项（来自 appcenter-cli 估算，打开启动台后会自动修正）`);
+      } else {
+        setLaunchpadAppListStatus(`应用列表：${launchpadAppItems.length} 项${updatedAtText}`);
+      }
+      return;
+    }
+
+    setLaunchpadAppListStatus('应用列表：等待启动台页面上报（打开启动台后自动同步）');
+  } catch (_) {
+    setLaunchpadAppListStatus('应用列表：读取失败，稍后自动重试');
+  }
+}
+
+function ensureLaunchpadPolling() {
+  if (launchpadPollTimer) return;
+  launchpadPollTimer = window.setInterval(() => {
+    if (activeTab !== 'preset') return;
+    loadLaunchpadAppItems().catch(() => {});
+  }, 3000);
+}
+
 async function getPayloadForSection(mode, fileInput, textArea, pathInput, label) {
   if (mode === 'none') {
     return { text: '', path: '' };
@@ -434,6 +572,8 @@ function getCurrentPresetConfig() {
   return {
     titlebarStyle,
     launchpadStyle,
+    launchpadIconScaleEnabled: Boolean(launchpadIconScaleEnabledEl && launchpadIconScaleEnabledEl.checked),
+    launchpadIconScaleSelectedKeys: normalizeLaunchpadKeyList(launchpadIconScaleSelectedKeys),
     brandColor,
     fontOverrideEnabled: Boolean(fontOverrideEnabledEl && fontOverrideEnabledEl.checked),
     fontFamily: fontFamilyEl ? fontFamilyEl.value.trim() : '',
@@ -481,6 +621,8 @@ function setPresetConfig(nextConfig) {
   if (styleMacEl) styleMacEl.checked = merged.titlebarStyle === 'mac';
   if (styleClassicLaunchpadEl) styleClassicLaunchpadEl.checked = merged.launchpadStyle !== 'spotlight';
   if (styleSpotlightLaunchpadEl) styleSpotlightLaunchpadEl.checked = merged.launchpadStyle === 'spotlight';
+  if (launchpadIconScaleEnabledEl) launchpadIconScaleEnabledEl.checked = Boolean(merged.launchpadIconScaleEnabled);
+  launchpadIconScaleSelectedKeys = normalizeLaunchpadKeyList(merged.launchpadIconScaleSelectedKeys);
 
   if (fontOverrideEnabledEl) fontOverrideEnabledEl.checked = Boolean(merged.fontOverrideEnabled);
   if (fontFamilyEl) fontFamilyEl.value = typeof merged.fontFamily === 'string' ? merged.fontFamily : '';
@@ -496,6 +638,7 @@ function setPresetConfig(nextConfig) {
 
   updateFontSettingsVisibility();
   updateCustomCodeSettingsVisibility();
+  renderLaunchpadAppList();
 }
 
 function loadPresetConfig() {
@@ -523,6 +666,10 @@ function setActiveTab(tab) {
     const selected = panel.dataset.tab === activeTab;
     panel.classList.toggle('is-active', selected);
   });
+
+  if (activeTab === 'preset') {
+    loadLaunchpadAppItems().catch(() => {});
+  }
 }
 
 async function handleInject() {
@@ -640,6 +787,24 @@ customCodeEnabledEl?.addEventListener('change', () => {
   updateCustomCodeSettingsVisibility();
   savePresetConfig();
 });
+launchpadIconScaleEnabledEl?.addEventListener('change', savePresetConfig);
+
+launchpadAppListEl?.addEventListener('change', (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement)) return;
+  if (target.type !== 'checkbox') return;
+  const key = typeof target.dataset.launchpadKey === 'string' ? target.dataset.launchpadKey.trim() : '';
+  if (!key) return;
+
+  const selectedSet = new Set(launchpadIconScaleSelectedKeys);
+  if (target.checked) {
+    selectedSet.add(key);
+  } else {
+    selectedSet.delete(key);
+  }
+  launchpadIconScaleSelectedKeys = Array.from(selectedSet);
+  savePresetConfig();
+});
 
 resetBrandColorEl?.addEventListener('click', () => {
   if (!brandColorEl) return;
@@ -688,3 +853,5 @@ wireModeGroup('js');
 loadPresetConfig();
 setActiveTab('preset');
 loadStatus();
+loadLaunchpadAppItems().catch(() => {});
+ensureLaunchpadPolling();

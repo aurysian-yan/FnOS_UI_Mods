@@ -116,7 +116,7 @@ body {
 }
 
 .tab-panel {
-  width: min(48.75rem, 100%);
+  /* width: min(48.75rem, 100%); */
   display: none;
 }
 
@@ -150,7 +150,7 @@ body {
   align-items: flex-start;
   justify-content: flex-start;
   gap: 4px;
-  min-height: calc(100vh - 154px);
+  /* min-height: calc(100vh - 154px); */
   box-sizing: border-box;
   font-family: "SarasaUISC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--text);
@@ -468,7 +468,7 @@ body {
   padding: 8px;
   box-sizing: border-box;
   background: var(--bg);
-  max-height: 648px;
+  /* max-height: 648px; */
 }
 
 .preset-card .launchpad-extra-settings .label {
@@ -490,6 +490,64 @@ body {
   background: var(--card-bg);
   border-radius: 4px;
   color: var(--text);
+}
+
+.preset-card .launchpad-app-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  cursor: pointer;
+  user-select: none;
+  padding: 2px 5px;
+}
+
+.preset-card .launchpad-app-item + .launchpad-app-item {
+  border-top: 1px solid color-mix(in srgb, var(--card-border) 80%, transparent);
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.preset-card .launchpad-app-item input {
+  margin: 0;
+  accent-color: var(--switch-on);
+}
+
+.preset-card .launchpad-app-item > span {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.preset-card .launchpad-app-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+  font-family: "SarasaUISC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.preset-card .launchpad-app-title-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.preset-card .launchpad-app-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  object-fit: contain;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--card-border) 35%, transparent);
+}
+
+.preset-card .launchpad-app-key {
+  font-size: 12px;
+  opacity: 0.8;
+  word-break: break-all;
 }
 
 @supports (corner-shape: superellipse(1.5)) {

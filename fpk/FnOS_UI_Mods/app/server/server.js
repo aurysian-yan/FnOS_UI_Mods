@@ -7,7 +7,7 @@ const fsp = fs.promises;
 const path = require('path');
 const os = require('os');
 const url = require('url');
-const { spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 
 const APP_DEST = process.env.TRIM_APPDEST || path.resolve(__dirname, '..');
 const WWW_ROOT = path.join(APP_DEST, 'www');
@@ -22,6 +22,9 @@ const PRESET_STORE_DIR = process.env.TRIM_PKGVAR
   : path.join(APP_DEST, 'server', 'preset-assets');
 const PRESET_CSS_TARGET = path.join(PRESET_STORE_DIR, 'mod.css');
 const PRESET_JS_TARGET = path.join(PRESET_STORE_DIR, 'mod.js');
+const LAUNCHPAD_REPORT_FILE = process.env.TRIM_PKGVAR
+  ? path.join(process.env.TRIM_PKGVAR, 'launchpad-apps.json')
+  : path.join(APP_DEST, 'server', 'launchpad-apps.json');
 
 const PRESET_TEMPLATE_DIR = path.join(WWW_ROOT, 'assets', 'templates');
 const PRESET_FILES = {
@@ -44,6 +47,8 @@ const BRAND_LIGHTNESS_MAX = 0.7;
 const DEFAULT_PRESET_CONFIG = {
   titlebarStyle: 'windows',
   launchpadStyle: 'classic',
+  launchpadIconScaleEnabled: false,
+  launchpadIconScaleSelectedKeys: [],
   brandColor: DEFAULT_BRAND,
   fontOverrideEnabled: false,
   fontFamily: '',
@@ -75,6 +80,32 @@ let nsenterAvailable = false;
 let mntSelf = null;
 let mntInit = null;
 let atAvailable = false;
+let launchpadAppsReport = {
+  items: [],
+  updatedAt: '',
+  source: '',
+};
+let cliInstalledAppsCache = {
+  fetchedAt: 0,
+  items: [],
+};
+
+function loadLaunchpadAppsReport() {
+  try {
+    const raw = fs.readFileSync(LAUNCHPAD_REPORT_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return;
+    launchpadAppsReport = {
+      items: normalizeLaunchpadAppItems(parsed.items),
+      updatedAt: typeof parsed.updatedAt === 'string' ? parsed.updatedAt : '',
+      source: typeof parsed.source === 'string' ? parsed.source : '',
+    };
+  } catch (_) {
+    // ignore
+  }
+}
+
+loadLaunchpadAppsReport();
 
 function detectNamespace() {
   try {
@@ -319,6 +350,13 @@ function sendText(res, status, text) {
     'Content-Length': Buffer.byteLength(text),
   });
   res.end(text);
+}
+
+function setCorsHeaders(res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Max-Age', '600');
 }
 
 function mimeFor(filePath) {
@@ -736,12 +774,123 @@ function normalizeFontWeight(value) {
   return '';
 }
 
+function normalizeLaunchpadKeyList(value, maxLength = 320) {
+  if (!Array.isArray(value)) return [];
+  const unique = new Set();
+  value.forEach((item) => {
+    if (typeof item !== 'string') return;
+    const key = item.trim().slice(0, maxLength);
+    if (!key) return;
+    unique.add(key);
+  });
+  return Array.from(unique);
+}
+
+function normalizeLaunchpadPreviewSource(rawSource) {
+  if (typeof rawSource !== 'string') return '';
+  const source = rawSource.trim();
+  if (!source) return '';
+  try {
+    const parsed = new URL(source);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+    return parsed.toString();
+  } catch (_) {
+    return '';
+  }
+}
+
+function normalizeLaunchpadAppItems(items) {
+  if (!Array.isArray(items)) return [];
+  const keyMap = new Map();
+
+  items.forEach((item) => {
+    if (!item || typeof item !== 'object') return;
+    const key = normalizePresetString(item.key, 320).trim();
+    if (!key) return;
+
+    const titleRaw = normalizePresetString(item.title, 200).trim();
+    const title = titleRaw || key.split('/').pop() || key;
+    const iconSrc = normalizeLaunchpadPreviewSource(item.iconSrc);
+    keyMap.set(key, { key, title, iconSrc });
+  });
+
+  return Array.from(keyMap.values()).slice(0, 800);
+}
+
+async function persistLaunchpadAppsReport() {
+  const payload = {
+    items: launchpadAppsReport.items,
+    updatedAt: launchpadAppsReport.updatedAt,
+    source: launchpadAppsReport.source,
+  };
+  const body = JSON.stringify(payload, null, 2);
+  try {
+    await fsp.mkdir(path.dirname(LAUNCHPAD_REPORT_FILE), { recursive: true });
+    await fsp.writeFile(LAUNCHPAD_REPORT_FILE, body, 'utf8');
+  } catch (err) {
+    log(`Persist launchpad report failed: ${err.message}`);
+  }
+}
+
+function parseAppcenterCliListOutput(raw) {
+  const lines = String(raw || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const appNames = new Set();
+  lines.forEach((line) => {
+    if (/^(appname|应用|name|\||-+|\+)/i.test(line)) return;
+    const matched = line.match(/[A-Za-z0-9._-]+/);
+    if (!matched || !matched[0]) return;
+    const appname = matched[0];
+    if (appname.length < 2) return;
+    appNames.add(appname);
+  });
+
+  return Array.from(appNames).slice(0, 500).map((appname) => ({
+    key: `/static/app/icons/${appname}/icon.png`,
+    title: appname,
+    iconSrc: '',
+  }));
+}
+
+function getInstalledAppsFromCli() {
+  const now = Date.now();
+  if (now - cliInstalledAppsCache.fetchedAt < 30000 && Array.isArray(cliInstalledAppsCache.items)) {
+    return cliInstalledAppsCache.items;
+  }
+
+  try {
+    const output = execFileSync('appcenter-cli', ['list'], {
+      encoding: 'utf8',
+      timeout: 2500,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const items = parseAppcenterCliListOutput(output);
+    cliInstalledAppsCache = {
+      fetchedAt: now,
+      items,
+    };
+    return items;
+  } catch (err) {
+    log(`appcenter-cli list unavailable: ${err.message}`);
+    cliInstalledAppsCache = {
+      fetchedAt: now,
+      items: [],
+    };
+    return [];
+  }
+}
+
 function normalizePresetConfig(raw) {
   const merged = { ...DEFAULT_PRESET_CONFIG, ...(raw && typeof raw === 'object' ? raw : {}) };
 
   return {
     titlebarStyle: merged.titlebarStyle === 'mac' ? 'mac' : 'windows',
     launchpadStyle: merged.launchpadStyle === 'spotlight' ? 'spotlight' : 'classic',
+    launchpadIconScaleEnabled: Boolean(merged.launchpadIconScaleEnabled),
+    launchpadIconScaleSelectedKeys: normalizeLaunchpadKeyList(merged.launchpadIconScaleSelectedKeys),
     brandColor: clampBrandLightness(merged.brandColor),
     fontOverrideEnabled: Boolean(merged.fontOverrideEnabled),
     fontFamily: normalizePresetString(merged.fontFamily, 400).trim(),
@@ -872,8 +1021,262 @@ function buildPresetCss(presetConfig, templates) {
   return buildBanner() + parts.join('\n');
 }
 
+function buildLaunchpadBridgeJs(presetConfig) {
+  const enabled = presetConfig.launchpadIconScaleEnabled ? 'true' : 'false';
+  const selectedKeys = JSON.stringify(
+    normalizeLaunchpadKeyList(presetConfig.launchpadIconScaleSelectedKeys),
+  );
+
+  return [
+    '(function () {',
+    '  if (window.__fnosFpkLaunchpadBridgeInitialized) return;',
+    '  window.__fnosFpkLaunchpadBridgeInitialized = true;',
+    `  const config = { enabled: ${enabled}, selectedKeys: ${selectedKeys} };`,
+    '  const selectedSet = new Set(Array.isArray(config.selectedKeys) ? config.selectedKeys : []);',
+    "  const STYLE_ID = 'fnos-ui-mods-launchpad-icon-scale-style';",
+    "  const BASE_CLASS = 'fnos-launchpad-icon-box--processed';",
+    "  const BOX_CLASS = 'fnos-launchpad-icon-box--scaled';",
+    "  const MASK_ONLY_CLASS = 'fnos-launchpad-icon-box--mask-only';",
+    "  const BLUR_CLONE_CLASS = 'fnos-launchpad-icon-blur-clone';",
+    "  const BLUR_CLONE_IMG_CLASS = 'fnos-launchpad-icon-blur-clone-img';",
+    '  const DESKTOP_CARD_TOKENS = ["flex", "h-[124px]", "w-[130px]", "cursor-pointer", "flex-col", "items-center", "justify-center", "gap-4"];',
+    '  const PANEL_CARD_TOKENS = ["flex", "flex-col", "justify-center", "items-center", "w-[172px]", "h-[156px]", "cursor-pointer"];',
+    '  const ICON_BOX_TOKENS = ["box-border", "size-[80px]", "p-[15%]"];',
+    "  const ICON_PREFIXES = ['/static/app/icons/', '/app-center-static/serviceicon/'];",
+    '  let reportTimer = 0;',
+    "  let lastReportFingerprint = '';",
+    '',
+    '  function hasAllClasses(el, classTokens) {',
+    '    if (!(el instanceof HTMLElement)) return false;',
+    '    return classTokens.every((token) => el.classList.contains(token));',
+    '  }',
+    '',
+    '  function normalizeIconKey(rawValue) {',
+    "    if (typeof rawValue !== 'string') return '';",
+    '    const raw = rawValue.trim();',
+    "    if (!raw) return '';",
+    '    try {',
+    '      const parsed = new URL(raw, window.location.origin);',
+    '      return parsed.pathname.toLowerCase();',
+    '    } catch (_) {',
+    "      return raw.split('?')[0].toLowerCase();",
+    '    }',
+    '  }',
+    '',
+    '  function isLaunchpadIconKey(key) {',
+    "    if (!key) return false;",
+    '    return ICON_PREFIXES.some((prefix) => key.includes(prefix));',
+    '  }',
+    '',
+    '  function getIconImageEl(cardEl) {',
+    '    if (!(cardEl instanceof HTMLElement)) return null;',
+    "    const imageEl = cardEl.querySelector('.semi-image img, img');",
+    '    return imageEl instanceof HTMLImageElement ? imageEl : null;',
+    '  }',
+    '',
+    '  function extractCardKey(cardEl) {',
+    '    const imageEl = getIconImageEl(cardEl);',
+    '    if (!(imageEl instanceof HTMLImageElement)) return "";',
+    "    const key = normalizeIconKey(imageEl.getAttribute('data-src') || imageEl.getAttribute('src') || '');",
+    '    return isLaunchpadIconKey(key) ? key : "";',
+    '  }',
+    '',
+    '  function extractCardTitle(cardEl) {',
+    '    if (!(cardEl instanceof HTMLElement)) return "";',
+    "    const titleNodes = cardEl.querySelectorAll('.line-clamp-1[title], div[title], span[title]');",
+    '    for (const node of titleNodes) {',
+    '      if (!(node instanceof HTMLElement)) continue;',
+    "      const title = (node.getAttribute('title') || '').trim();",
+    '      if (title) return title;',
+    '    }',
+    "    const fallback = cardEl.textContent ? cardEl.textContent.trim().replace(/\\s+/g, ' ') : '';",
+    "    return fallback || '';",
+    '  }',
+    '',
+    '  function collectCards() {',
+    '    const cards = [];',
+    "    document.querySelectorAll('div.cursor-pointer').forEach((candidate) => {",
+    '      if (!(candidate instanceof HTMLElement)) return;',
+    '      if (!hasAllClasses(candidate, DESKTOP_CARD_TOKENS) && !hasAllClasses(candidate, PANEL_CARD_TOKENS)) return;',
+    '      const key = extractCardKey(candidate);',
+    '      if (!key) return;',
+    '      cards.push(candidate);',
+    '    });',
+    '    return cards;',
+    '  }',
+    '',
+    '  function findIconBox(cardEl) {',
+    '    if (!(cardEl instanceof HTMLElement)) return null;',
+    "    const candidates = cardEl.querySelectorAll('div.box-border');",
+    '    for (const candidate of candidates) {',
+    '      if (!(candidate instanceof HTMLElement)) continue;',
+    '      if (!hasAllClasses(candidate, ICON_BOX_TOKENS)) continue;',
+    "      if (!candidate.querySelector('.semi-image')) continue;",
+    '      return candidate;',
+    '    }',
+    '    return null;',
+    '  }',
+    '',
+    '  function ensureScaleStyle() {',
+    '    let styleEl = document.getElementById(STYLE_ID);',
+    '    if (!styleEl) {',
+    "      styleEl = document.createElement('style');",
+    '      styleEl.id = STYLE_ID;',
+    '      (document.head || document.documentElement).appendChild(styleEl);',
+    '    }',
+    '    const css = [',
+    '      `.${BASE_CLASS}{position:relative;overflow:visible;}` ,',
+    '      `.${BASE_CLASS} .semi-image{transform-origin:center center;position:relative;z-index:1;}` ,',
+    '      `.${BLUR_CLONE_CLASS}{position:absolute;inset:0;z-index:0;pointer-events:none;transform:scale(1.25);transform-origin:center center;filter:blur(8px) saturate(115%);opacity:.42;}` ,',
+    '      `.${BLUR_CLONE_CLASS} .${BLUR_CLONE_IMG_CLASS}{width:100%;height:100%;object-fit:contain;display:block;}` ,',
+    '      `.${BOX_CLASS} .semi-image{transform:scale(.75)!important;}` ,',
+    '      `.${MASK_ONLY_CLASS}:not(.${BOX_CLASS}) .semi-image{transform:none!important;}` ,',
+    "    ].join('\\n');",
+    '    if (styleEl.textContent !== css) styleEl.textContent = css;',
+    '  }',
+    '',
+    '  function ensureBlurClone(boxEl, cardEl) {',
+    '    if (!(boxEl instanceof HTMLElement)) return;',
+    '    const imageEl = getIconImageEl(cardEl);',
+    '    if (!(imageEl instanceof HTMLImageElement)) return;',
+    "    const src = imageEl.getAttribute('src') || imageEl.getAttribute('data-src') || '';",
+    '    if (!src) return;',
+    '    let cloneEl = boxEl.querySelector(`:scope > .${BLUR_CLONE_CLASS}`);',
+    '    if (!(cloneEl instanceof HTMLElement)) {',
+    "      cloneEl = document.createElement('div');",
+    '      cloneEl.className = BLUR_CLONE_CLASS;',
+    "      const cloneImg = document.createElement('img');",
+    '      cloneImg.className = BLUR_CLONE_IMG_CLASS;',
+    "      cloneImg.alt = '';",
+    '      cloneEl.appendChild(cloneImg);',
+    '      boxEl.insertBefore(cloneEl, boxEl.firstChild);',
+    '    }',
+    '    const cloneImg = cloneEl.querySelector(`img.${BLUR_CLONE_IMG_CLASS}`);',
+    '    if (!(cloneImg instanceof HTMLImageElement)) return;',
+    "    if (cloneImg.getAttribute('src') !== src) cloneImg.setAttribute('src', src);",
+    '  }',
+    '',
+    '  function removeBlurClone(boxEl) {',
+    '    if (!(boxEl instanceof HTMLElement)) return;',
+    '    boxEl.querySelectorAll(`:scope > .${BLUR_CLONE_CLASS}`).forEach((node) => {',
+    '      if (!(node instanceof HTMLElement)) return;',
+    '      node.remove();',
+    '    });',
+    '  }',
+    '',
+    '  function applyScaleState() {',
+    '    const cards = collectCards();',
+    '    const matchedBoxes = new Set();',
+    '    cards.forEach((cardEl) => {',
+    '      const boxEl = findIconBox(cardEl);',
+    '      if (!(boxEl instanceof HTMLElement)) return;',
+    '      const key = extractCardKey(cardEl);',
+    '      if (!key) return;',
+    '      matchedBoxes.add(boxEl);',
+    '      const shouldScale = config.enabled && selectedSet.size > 0 && selectedSet.has(key);',
+    '      boxEl.classList.toggle(BASE_CLASS, shouldScale);',
+    '      boxEl.classList.toggle(BOX_CLASS, shouldScale);',
+    '      boxEl.classList.remove(MASK_ONLY_CLASS);',
+    '      if (shouldScale) {',
+    '        ensureBlurClone(boxEl, cardEl);',
+    '      } else {',
+    '        removeBlurClone(boxEl);',
+    '      }',
+    '    });',
+    '    document',
+    '      .querySelectorAll(`.${BASE_CLASS}, .${BOX_CLASS}, .${MASK_ONLY_CLASS}`)',
+    '      .forEach((boxEl) => {',
+    '        if (!(boxEl instanceof HTMLElement)) return;',
+    '        if (config.enabled && matchedBoxes.has(boxEl)) return;',
+    '        boxEl.classList.remove(BASE_CLASS);',
+    '        boxEl.classList.remove(BOX_CLASS);',
+    '        boxEl.classList.remove(MASK_ONLY_CLASS);',
+    '        removeBlurClone(boxEl);',
+    '      });',
+    '  }',
+    '',
+    '  function collectLaunchpadItems() {',
+    '    const map = new Map();',
+    '    collectCards().forEach((cardEl) => {',
+    '      const key = extractCardKey(cardEl);',
+    '      if (!key || map.has(key)) return;',
+    '      const imageEl = getIconImageEl(cardEl);',
+    "      const iconSrc = imageEl ? (imageEl.getAttribute('src') || imageEl.getAttribute('data-src') || '') : '';",
+    '      map.set(key, {',
+    '        key,',
+    "        title: extractCardTitle(cardEl) || key.split('/').pop() || key,",
+    '        iconSrc,',
+    '      });',
+    '    });',
+    '    return Array.from(map.values());',
+    '  }',
+    '',
+    '  function getReportEndpoint() {',
+    "    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';",
+    "    return `${protocol}//${window.location.hostname}:8964/api/launchpad/apps`;",
+    '  }',
+    '',
+    '  function reportLaunchpadItems() {',
+    '    const items = collectLaunchpadItems();',
+    '    const fingerprint = JSON.stringify(items.map((item) => [item.key, item.title, item.iconSrc]));',
+    '    if (fingerprint === lastReportFingerprint) return;',
+    '    lastReportFingerprint = fingerprint;',
+    '',
+    '    fetch(getReportEndpoint(), {',
+    "      method: 'POST',",
+    "      mode: 'cors',",
+    "      headers: { 'Content-Type': 'application/json' },",
+    '      body: JSON.stringify({',
+    "        source: window.location.origin || '',",
+    '        items,',
+    '      }),',
+    '    }).catch(() => {});',
+    '  }',
+    '',
+    '  function refreshAll() {',
+    '    if (config.enabled) ensureScaleStyle();',
+    '    applyScaleState();',
+    '    reportLaunchpadItems();',
+    '  }',
+    '',
+    '  function scheduleRefresh() {',
+    '    if (reportTimer) return;',
+    '    reportTimer = window.setTimeout(() => {',
+    '      reportTimer = 0;',
+    '      refreshAll();',
+    '    }, 160);',
+    '  }',
+    '',
+    '  function startObserve() {',
+    '    if (!(document.body instanceof HTMLElement)) return;',
+    '    const observer = new MutationObserver(() => scheduleRefresh());',
+    '    observer.observe(document.body, {',
+    "      childList: true,",
+    "      subtree: true,",
+    "      attributes: true,",
+    "      attributeFilter: ['class', 'title', 'src', 'data-src'],",
+    '    });',
+    "    window.setInterval(() => scheduleRefresh(), 4000);",
+    '  }',
+    '',
+    "  if (document.readyState === 'loading') {",
+    "    document.addEventListener('DOMContentLoaded', () => { refreshAll(); startObserve(); }, { once: true });",
+    '  } else {',
+    '    refreshAll();',
+    '    startObserve();',
+    '  }',
+    '})();',
+    '',
+  ].join('\n');
+}
+
 function buildPresetJs(presetConfig, templates) {
-  const parts = [buildBanner(), normalizeTextContent(templates.js)];
+  const parts = [
+    buildBanner(),
+    normalizeTextContent(templates.js),
+    '\n/* ----- generated.launchpad.bridge.js ----- */\n',
+    normalizeTextContent(buildLaunchpadBridgeJs(presetConfig)),
+  ];
   if (presetConfig.customCodeEnabled && presetConfig.customJs.trim()) {
     parts.push('\n/* ----- generated.custom.js ----- */\n');
     parts.push(normalizeTextContent(presetConfig.customJs));
@@ -1054,6 +1457,42 @@ async function getStatus() {
   return result;
 }
 
+function getLaunchpadAppsReport() {
+  const currentItems = Array.isArray(launchpadAppsReport.items) ? launchpadAppsReport.items : [];
+  if (currentItems.length > 0) {
+    return {
+      items: currentItems,
+      updatedAt: typeof launchpadAppsReport.updatedAt === 'string' ? launchpadAppsReport.updatedAt : '',
+      source: typeof launchpadAppsReport.source === 'string' ? launchpadAppsReport.source : '',
+    };
+  }
+
+  const cliItems = getInstalledAppsFromCli();
+  return {
+    items: cliItems,
+    updatedAt: typeof launchpadAppsReport.updatedAt === 'string' ? launchpadAppsReport.updatedAt : '',
+    source: cliItems.length > 0 ? 'appcenter-cli:list' : '',
+  };
+}
+
+async function updateLaunchpadAppsReport(body) {
+  const source = body && typeof body.source === 'string' ? normalizePresetString(body.source, 400).trim() : '';
+  const items = normalizeLaunchpadAppItems(body && body.items);
+
+  if (items.length === 0 && Array.isArray(launchpadAppsReport.items) && launchpadAppsReport.items.length > 0) {
+    return getLaunchpadAppsReport();
+  }
+
+  launchpadAppsReport = {
+    items,
+    updatedAt: new Date().toISOString(),
+    source,
+  };
+
+  await persistLaunchpadAppsReport();
+  return getLaunchpadAppsReport();
+}
+
 async function readJsonBody(req, limitBytes = 20 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
     let body = '';
@@ -1142,6 +1581,16 @@ async function handlePresetAsset(req, res, pathname) {
 const server = http.createServer(async (req, res) => {
   const parsedUrl = url.parse(req.url || '/', true);
   const pathname = parsedUrl.pathname || '/';
+  const isLaunchpadApi = pathname === '/api/launchpad/apps';
+
+  if (isLaunchpadApi) {
+    setCorsHeaders(res);
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+  }
 
   if (req.method === 'GET' && (pathname === '/preset/mod.css' || pathname === '/preset/mod.js')) {
     return handlePresetAsset(req, res, pathname);
@@ -1186,6 +1635,21 @@ const server = http.createServer(async (req, res) => {
         }
 
         return sendJson(res, 200, { ok: true, message: result.message });
+      }
+
+      if (req.method === 'GET' && pathname === '/api/launchpad/apps') {
+        const report = getLaunchpadAppsReport();
+        return sendJson(res, 200, { ok: true, data: report });
+      }
+
+      if (req.method === 'POST' && pathname === '/api/launchpad/apps') {
+        const body = await readJsonBody(req);
+        const report = await updateLaunchpadAppsReport(body);
+        return sendJson(res, 200, {
+          ok: true,
+          message: `已接收 ${report.items.length} 条应用图标数据`,
+          data: report,
+        });
       }
 
       return sendJson(res, 404, { ok: false, message: 'Not Found' });
